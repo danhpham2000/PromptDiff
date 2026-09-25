@@ -1,0 +1,18 @@
+[project]
+name = "promptdiff"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.27",
+  "pyyaml>=6.0",
+]
+
+[project.scripts]
+promptdiff = "promptdiff_cli.__main__:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["promptdiff_cli*"]

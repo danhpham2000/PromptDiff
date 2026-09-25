@@ -1,0 +1,51 @@
+schema_version: 1
+
+project:
+  name: refund-agent
+
+providers:
+  default:
+    name: mock
+    model: mock-support
+    temperature: 0.2
+    max_tokens: 1500
+
+baseline:
+  prompt: examples/basic-prompt-diff/prompts/refund-v17.md
+
+candidate:
+  prompt: examples/basic-prompt-diff/prompts/refund-v18.md
+
+dataset:
+  path: examples/basic-prompt-diff/datasets/refunds.yaml
+
+evaluators:
+  - name: tool-selection
+    type: tool_selection
+    category: tool
+    hard_gate: true
+    required: true
+
+execution:
+  repetitions: 1
+  concurrency: 5
+  timeout_seconds: 60
+
+regression:
+  quality:
+    max_drop_points: 2
+  cost:
+    max_mean_increase_percent: 20
+  latency:
+    max_p95_increase_percent: 15
+
+redaction:
+  keys: []
+  regex: []
+
+output:
+  directory: .promptdiff/results
+  formats:
+    - json
+    - markdown
+

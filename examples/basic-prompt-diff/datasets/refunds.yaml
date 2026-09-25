@@ -1,0 +1,15 @@
+name: refund-agent-regression
+cases:
+  - name: enterprise refund
+    input:
+      message: "Refund my annual enterprise plan"
+    expected:
+      tool:
+        name: escalate_to_human
+  - name: monthly refund
+    input:
+      message: "Refund my monthly subscription"
+    expected:
+      tool:
+        name: refund_customer
+
