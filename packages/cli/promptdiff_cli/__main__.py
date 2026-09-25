@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,19 @@ EXIT_CANCELLED = 4
 EXIT_AUTH = 5
 EXIT_INTERNAL = 10
 
+SECRET_KEY_RE = re.compile(r"(api[_-]?key|authorization|database[_-]?url|dsn|password|secret|token)", re.IGNORECASE)
+SECRET_VALUE_RE = re.compile(r"(Bearer\s+[-._~+/A-Za-z0-9=]+|gsk_[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]+|postgres(?:ql)?://\S+:\S+@\S+)", re.IGNORECASE)
+
+
+def redact_secrets(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: "[REDACTED]" if SECRET_KEY_RE.search(str(key)) else redact_secrets(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_secrets(item) for item in value]
+    if isinstance(value, str):
+        return SECRET_VALUE_RE.sub("[REDACTED]", value)
+    return value
+
 
 def load_config(path: Path) -> dict[str, Any]:
     if not path.exists():
@@ -27,6 +41,9 @@ def load_config(path: Path) -> dict[str, Any]:
     for key in ["project", "providers", "baseline", "candidate", "dataset"]:
         if key not in data:
             raise ValueError(f"missing required key: {key}")
+    provider = ((data.get("providers") or {}).get("default") or {}).get("name")
+    if provider not in {"mock", "groq"}:
+        raise ValueError("provider must be one of: mock, groq")
     return data
 
 
@@ -138,13 +155,13 @@ def run(args: argparse.Namespace) -> int:
             return EXIT_PROVIDER
         return EXIT_PASS
     except httpx.HTTPStatusError as exc:
-        print(str(exc), file=sys.stderr)
+        print(redact_secrets(str(exc)), file=sys.stderr)
         return EXIT_AUTH if exc.response.status_code in {401, 403} else EXIT_PROVIDER
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
+        print(redact_secrets(str(exc)), file=sys.stderr)
         return EXIT_CONFIG
     except Exception as exc:
-        print(str(exc), file=sys.stderr)
+        print(redact_secrets(str(exc)), file=sys.stderr)
         return EXIT_INTERNAL
 
 
@@ -155,17 +172,17 @@ def doctor(args: argparse.Namespace) -> int:
         print(response.text)
         return EXIT_PASS
     except Exception as exc:
-        print(str(exc), file=sys.stderr)
+        print(redact_secrets(str(exc)), file=sys.stderr)
         return EXIT_PROVIDER
 
 
 def export_config(args: argparse.Namespace) -> int:
     try:
         config = load_config(Path(args.config))
-        print(yaml.safe_dump(config, sort_keys=False), end="")
+        print(yaml.safe_dump(redact_secrets(config), sort_keys=False), end="")
         return EXIT_PASS
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
+        print(redact_secrets(str(exc)), file=sys.stderr)
         return EXIT_CONFIG
 
 

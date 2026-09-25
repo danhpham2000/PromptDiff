@@ -276,7 +276,7 @@ async def run_experiment(db: Session, experiment: models.Experiment, request: Ex
                         repetition=repetition,
                         input=redact(case["input"]),
                         status="failed",
-                        error_message=str(exc),
+                        error_message=redact(str(exc)),
                     )
                     db.add(run)
                     db.commit()

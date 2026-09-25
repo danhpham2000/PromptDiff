@@ -7,6 +7,12 @@ dependencies = [
   "pyyaml>=6.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.16",
+]
+
 [project.scripts]
 promptdiff = "promptdiff_cli.__main__:main"
 

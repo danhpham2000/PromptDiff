@@ -99,12 +99,26 @@ def list_datasets(project_id: str | None = None, db: Session = Depends(get_db)) 
 
 @router.post("/datasets/import", response_model=schemas.DatasetOut)
 def import_dataset(payload: schemas.DatasetImport, db: Session = Depends(get_db)) -> models.Dataset:
-    parsed = yaml.safe_load(payload.content) if payload.format == "yaml" else json.loads(payload.content)
+    require(db.get(models.Project, payload.project_id), "project")
+    try:
+        parsed = yaml.safe_load(payload.content) if payload.format == "yaml" else json.loads(payload.content)
+    except (json.JSONDecodeError, yaml.YAMLError) as exc:
+        raise HTTPException(status_code=400, detail="invalid dataset import content") from exc
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("name"), str):
+        raise HTTPException(status_code=400, detail="dataset import requires a name")
+    cases = parsed.get("cases", [])
+    if not isinstance(cases, list):
+        raise HTTPException(status_code=400, detail="dataset import cases must be a list")
+    if len(cases) > 1_000:
+        raise HTTPException(status_code=400, detail="dataset import supports at most 1000 cases")
+    for case in cases:
+        if not isinstance(case, dict) or "input" not in case:
+            raise HTTPException(status_code=400, detail="dataset case requires input")
     dataset = models.Dataset(project_id=payload.project_id, name=parsed["name"], description=parsed.get("description"))
     db.add(dataset)
     db.commit()
     db.refresh(dataset)
-    for case in parsed.get("cases", []):
+    for case in cases:
         db.add(
             models.DatasetCase(
                 dataset_id=dataset.id,
@@ -144,7 +158,14 @@ def create_regression_config(project_id: str, payload: dict[str, Any], db: Sessi
     require(db.get(models.Project, project_id), "project")
     name = payload.get("name", "default")
     version = 1
-    row = models.RegressionConfig(project_id=project_id, name=name, version=version, schema_version=payload.get("config", {}).get("schema_version", 1), config=payload.get("config", {}), created_by="local-user")
+    row = models.RegressionConfig(
+        project_id=project_id,
+        name=name,
+        version=version,
+        schema_version=payload.get("config", {}).get("schema_version", 1),
+        config=payload.get("config", {}),
+        created_by="local-user",
+    )
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -239,7 +260,7 @@ def export_experiment(experiment_id: str, format: str = "json", db: Session = De
         return Response(json.dumps(data, default=str, indent=2), media_type="application/json")
     if format == "markdown":
         verdict = data["experiment"]["verdict"]
-        body = [f"# PromptDiff Report", "", f"Result: {verdict}", "", "| Case | Tool Changed | Token Delta | Latency Delta |", "|---|---:|---:|---:|"]
+        body = ["# PromptDiff Report", "", f"Result: {verdict}", "", "| Case | Tool Changed | Token Delta | Latency Delta |", "|---|---:|---:|---:|"]
         for item in data["items"]:
             body.append(f"| {item['id']} | {item['tool_diff']['changed']} | {item['token_delta']} | {item['latency_delta_ms']} |")
         return Response("\n".join(body), media_type="text/markdown")
@@ -255,4 +276,3 @@ def export_experiment(experiment_id: str, format: str = "json", db: Session = De
         xml = f'<testsuite name="promptdiff" tests="1" failures="{failures}"><testcase name="{experiment_id}" /></testsuite>'
         return Response(xml, media_type="application/xml")
     raise HTTPException(status_code=400, detail="unsupported export format")
-

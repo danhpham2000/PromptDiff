@@ -16,3 +16,6 @@ def test_redacts_key_and_value_patterns():
         "safe": "hello",
     }
 
+
+def test_redacts_groq_keys():
+    assert redact("gsk_secret12345678901234567890") == "[REDACTED]"

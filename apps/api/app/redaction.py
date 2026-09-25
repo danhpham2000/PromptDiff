@@ -22,7 +22,7 @@ VALUE_PATTERNS = [
     re.compile(r"Basic\s+[A-Za-z0-9+/=]+", re.I),
     re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S),
-    re.compile(r"\b(?:sk|ak|rk|xai|anthropic|AIza)[A-Za-z0-9_\-]{16,}\b"),
+    re.compile(r"\b(?:sk|gsk|ak|rk|xai|anthropic|AIza)[A-Za-z0-9_\-]{16,}\b"),
     re.compile(r"[a-z]+://[^:\s]+:[^@\s]+@[^)\s]+", re.I),
 ]
 

@@ -1,7 +1,20 @@
+import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+MAX_NAME_LENGTH = 200
+MAX_DESCRIPTION_LENGTH = 2_000
+MAX_PROMPT_LENGTH = 100_000
+MAX_JSON_BYTES = 100_000
+MAX_DATASET_IMPORT_BYTES = 1_000_000
+
+
+def _check_json_size(value: Any) -> Any:
+    if value is not None and len(json.dumps(value, default=str).encode()) > MAX_JSON_BYTES:
+        raise ValueError(f"JSON fields must be {MAX_JSON_BYTES} bytes or smaller")
+    return value
 
 
 class ORMModel(BaseModel):
@@ -9,9 +22,9 @@ class ORMModel(BaseModel):
 
 
 class ProjectCreate(BaseModel):
-    name: str
-    slug: str | None = None
-    description: str | None = None
+    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
+    slug: str | None = Field(default=None, max_length=MAX_NAME_LENGTH)
+    description: str | None = Field(default=None, max_length=MAX_DESCRIPTION_LENGTH)
 
 
 class ProjectOut(ORMModel):
@@ -25,8 +38,8 @@ class ProjectOut(ORMModel):
 
 class PromptCreate(BaseModel):
     project_id: str
-    name: str
-    description: str | None = None
+    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
+    description: str | None = Field(default=None, max_length=MAX_DESCRIPTION_LENGTH)
 
 
 class PromptOut(ORMModel):
@@ -38,11 +51,16 @@ class PromptOut(ORMModel):
 
 
 class PromptVersionCreate(BaseModel):
-    system_prompt: str | None = ""
-    user_template: str | None = ""
+    system_prompt: str | None = Field(default="", max_length=MAX_PROMPT_LENGTH)
+    user_template: str | None = Field(default="", max_length=MAX_PROMPT_LENGTH)
     tool_definitions: list[dict[str, Any]] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     schema_version: int = 1
+
+    @field_validator("tool_definitions", "metadata")
+    @classmethod
+    def json_fields_are_bounded(cls, value: Any) -> Any:
+        return _check_json_size(value)
 
 
 class PromptVersionOut(ORMModel):
@@ -60,8 +78,8 @@ class PromptVersionOut(ORMModel):
 
 class DatasetCreate(BaseModel):
     project_id: str
-    name: str
-    description: str | None = None
+    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
+    description: str | None = Field(default=None, max_length=MAX_DESCRIPTION_LENGTH)
 
 
 class DatasetOut(ORMModel):
@@ -73,16 +91,21 @@ class DatasetOut(ORMModel):
 
 
 class DatasetCaseCreate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, max_length=MAX_NAME_LENGTH)
     input: dict[str, Any]
     expected_output: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("input", "expected_output", "metadata")
+    @classmethod
+    def json_fields_are_bounded(cls, value: Any) -> Any:
+        return _check_json_size(value)
+
 
 class DatasetImport(BaseModel):
     project_id: str
-    content: str
-    format: str = "yaml"
+    content: str = Field(max_length=MAX_DATASET_IMPORT_BYTES)
+    format: Literal["yaml", "json"] = "yaml"
 
 
 class DatasetCaseOut(ORMModel):
@@ -96,9 +119,9 @@ class DatasetCaseOut(ORMModel):
 
 
 class EvaluatorConfig(BaseModel):
-    name: str
-    type: str
-    category: str = "quality"
+    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
+    type: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
+    category: str = Field(default="quality", max_length=MAX_NAME_LENGTH)
     weight: float = 1.0
     include_in_quality_score: bool = False
     required: bool = False
@@ -108,7 +131,7 @@ class EvaluatorConfig(BaseModel):
 
 class ExperimentCreate(BaseModel):
     project_id: str
-    name: str
+    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
     baseline_prompt_version_id: str
     candidate_prompt_version_id: str
     dataset_id: str
@@ -121,6 +144,11 @@ class ExperimentCreate(BaseModel):
     timeout_seconds: int = Field(default=60, ge=5, le=300)
     evaluators: list[EvaluatorConfig] = Field(default_factory=list)
     regression: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("regression")
+    @classmethod
+    def json_fields_are_bounded(cls, value: Any) -> Any:
+        return _check_json_size(value)
 
 
 class ExperimentOut(ORMModel):
@@ -135,5 +163,4 @@ class ExperimentOut(ORMModel):
 
 
 class CancelRequest(BaseModel):
-    reason: str = "user_cancelled"
-
+    reason: str = Field(default="user_cancelled", max_length=MAX_DESCRIPTION_LENGTH)

@@ -14,7 +14,7 @@ docker compose up
 - API: http://localhost:8000
 - API health: http://localhost:8000/health
 
-Local mode has no login and uses one implicit workspace. Hosted Neon/Upstash support is intentionally deferred to v0.2.
+Local mode has no login and uses one implicit workspace. Docker Compose binds web, API, and Postgres to `127.0.0.1` only; do not expose the v0.1 API on a public network. Hosted Neon/Upstash auth is intentionally deferred to v0.2.
 
 ## CLI
 
@@ -23,4 +23,3 @@ python -m promptdiff_cli init
 python -m promptdiff_cli validate --config promptdiff.yaml
 python -m promptdiff_cli test --config promptdiff.yaml
 ```
-
