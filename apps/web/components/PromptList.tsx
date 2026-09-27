@@ -6,15 +6,17 @@ type PromptListProps = {
   onCreated: (prompt: Prompt) => void;
   onError: (message: string) => void;
   onRefresh: () => void;
+  onSelectPrompt: (promptId: string) => void;
   projectId: string | null;
   prompts: Prompt[];
+  selectedPromptId: string | null;
 };
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }
 
-export function PromptList({ isLoading, onCreated, onError, onRefresh, projectId, prompts }: PromptListProps) {
+export function PromptList({ isLoading, onCreated, onError, onRefresh, onSelectPrompt, projectId, prompts, selectedPromptId }: PromptListProps) {
   if (!projectId) {
     return (
       <section className="panel stack">
@@ -52,13 +54,19 @@ export function PromptList({ isLoading, onCreated, onError, onRefresh, projectId
       {prompts.length ? (
         <div className="prompt-list" aria-label="Prompts">
           {prompts.map((prompt) => (
-            <article className="prompt-row" key={prompt.id}>
-              <div>
-                <h3>{prompt.name}</h3>
-                <p>{prompt.description || "No description"}</p>
-              </div>
+            <button
+              aria-pressed={prompt.id === selectedPromptId}
+              className={`prompt-row ${prompt.id === selectedPromptId ? "selected" : ""}`}
+              key={prompt.id}
+              onClick={() => onSelectPrompt(prompt.id)}
+              type="button"
+            >
+              <span>
+                <strong>{prompt.name}</strong>
+                <span>{prompt.description || "No description"}</span>
+              </span>
               <span>Created {formatDate(prompt.created_at)}</span>
-            </article>
+            </button>
           ))}
         </div>
       ) : null}

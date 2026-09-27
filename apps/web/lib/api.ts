@@ -29,6 +29,27 @@ export type PromptCreateInput = {
   description?: string;
 };
 
+export type PromptVersion = {
+  id: string;
+  prompt_id: string;
+  version_number: number;
+  system_prompt: string | null;
+  user_template: string | null;
+  tool_definitions: Record<string, unknown>[] | null;
+  metadata_json: Record<string, unknown> | null;
+  schema_version: number;
+  content_hash: string;
+  created_at: string;
+};
+
+export type PromptVersionCreateInput = {
+  system_prompt?: string;
+  user_template?: string;
+  tool_definitions?: Record<string, unknown>[];
+  metadata?: Record<string, unknown>;
+  schema_version?: number;
+};
+
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -63,6 +84,17 @@ export function listPrompts(projectId: string): Promise<Prompt[]> {
 
 export function createPrompt(input: PromptCreateInput): Promise<Prompt> {
   return apiRequest<Prompt>("/api/v1/prompts", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function listPromptVersions(promptId: string): Promise<PromptVersion[]> {
+  return apiRequest<PromptVersion[]>(`/api/v1/prompts/${encodeURIComponent(promptId)}/versions`);
+}
+
+export function createPromptVersion(promptId: string, input: PromptVersionCreateInput): Promise<PromptVersion> {
+  return apiRequest<PromptVersion>(`/api/v1/prompts/${encodeURIComponent(promptId)}/versions`, {
     method: "POST",
     body: JSON.stringify(input),
   });
