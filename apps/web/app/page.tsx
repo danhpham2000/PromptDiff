@@ -454,9 +454,19 @@ export default function Home() {
     <main>
       <header className="app-header">
         <div>
-          <p className="eyebrow">Local v0.1</p>
+          <p className="eyebrow">Local workspace</p>
           <h1>PromptDiff</h1>
           <p>Track prompt versions, datasets, experiments, and regression gates.</p>
+        </div>
+        <div className="header-meta" aria-label="Workspace summary">
+          <span>
+            <strong>{projects.length}</strong>
+            <span>Projects</span>
+          </span>
+          <span>
+            <strong>{experiments.length}</strong>
+            <span>Experiments</span>
+          </span>
         </div>
       </header>
 
@@ -468,14 +478,18 @@ export default function Home() {
       ) : null}
 
       <div className="dashboard-grid">
-        <ProjectList
-          isLoading={isLoading}
-          onSelectProject={setSelectedProjectId}
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onRefresh={refreshProjects}
-        />
-        <aside className="side-stack">
+        <aside className="workspace-sidebar">
+          <ProjectList
+            isLoading={isLoading}
+            onSelectProject={setSelectedProjectId}
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onRefresh={refreshProjects}
+          />
+          <CreateProjectForm onCreated={handleProjectCreated} onError={setError} />
+        </aside>
+
+        <section className="workspace-main">
           <ProjectDetails project={selectedProject} />
           <div className="segmented-control" aria-label="Project resources">
             <button className={activePanel === "prompts" ? "active" : ""} onClick={() => setActivePanel("prompts")} type="button">
@@ -550,8 +564,7 @@ export default function Home() {
               selectedExperimentId={selectedExperimentId}
             />
           ) : null}
-          <CreateProjectForm onCreated={handleProjectCreated} onError={setError} />
-        </aside>
+        </section>
       </div>
     </main>
   );
