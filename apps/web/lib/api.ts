@@ -15,6 +15,20 @@ export type ProjectCreateInput = {
   description?: string;
 };
 
+export type Prompt = {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+};
+
+export type PromptCreateInput = {
+  project_id: string;
+  name: string;
+  description?: string;
+};
+
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -38,6 +52,17 @@ export function listProjects(): Promise<Project[]> {
 
 export function createProject(input: ProjectCreateInput): Promise<Project> {
   return apiRequest<Project>("/api/v1/projects", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function listPrompts(projectId: string): Promise<Prompt[]> {
+  return apiRequest<Prompt[]>(`/api/v1/prompts?project_id=${encodeURIComponent(projectId)}`);
+}
+
+export function createPrompt(input: PromptCreateInput): Promise<Prompt> {
+  return apiRequest<Prompt>("/api/v1/prompts", {
     method: "POST",
     body: JSON.stringify(input),
   });

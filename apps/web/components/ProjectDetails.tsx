@@ -44,18 +44,6 @@ export function ProjectDetails({ project }: ProjectDetailsProps) {
           <dd>{formatDate(project.updated_at)}</dd>
         </div>
       </dl>
-
-      <div className="action-grid" aria-label="Project sections">
-        <button className="secondary-button" type="button" disabled>
-          Prompts
-        </button>
-        <button className="secondary-button" type="button" disabled>
-          Datasets
-        </button>
-        <button className="secondary-button" type="button" disabled>
-          Experiments
-        </button>
-      </div>
     </section>
   );
 }
