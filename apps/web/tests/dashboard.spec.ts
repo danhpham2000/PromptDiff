@@ -49,6 +49,15 @@ async function createCompletedExperiment(page: import("@playwright/test").Page, 
 
 test("runs the local PromptDiff workflow end to end", async ({ page }) => {
   await createCompletedExperiment(page, `e2e-${Date.now()}`);
+  await expect(page.getByText("Case detail")).toBeVisible();
+  await expect(page.getByRole("button", { name: /case 1/i })).toBeVisible();
+  await page.getByRole("button", { name: /case 1/i }).click();
+  await expect(page.getByText("Input")).toBeVisible();
+  await expect(page.getByText("Baseline output")).toBeVisible();
+  await expect(page.getByText("Candidate output")).toBeVisible();
+  await expect(page.getByText("Metrics")).toBeVisible();
+  await expect(page.getByText("Evaluator results")).toBeVisible();
+  await expect(page.getByText("Tool calls")).toBeVisible();
   await expect(page.getByText("Output diff")).toBeVisible();
   await expect(page.getByText("Tool diff")).toBeVisible();
 });
