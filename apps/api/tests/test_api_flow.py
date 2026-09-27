@@ -3,6 +3,7 @@ from collections.abc import Generator
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
+import pytest
 from app import models
 from app.config import get_settings
 from app.db import get_db
@@ -30,8 +31,14 @@ def override_db() -> Generator[Session, None, None]:
         db.close()
 
 
-app.dependency_overrides[get_db] = override_db
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def use_test_db_override():
+    app.dependency_overrides[get_db] = override_db
+    yield
+    app.dependency_overrides.pop(get_db, None)
 
 
 def test_local_experiment_flow():
@@ -85,6 +92,45 @@ def test_local_experiment_flow():
 
     comparison = client.get(f"/api/v1/experiments/{experiment['id']}/comparison").json()
     assert len(comparison["items"]) == 2
+
+
+def test_regression_config_list_and_get():
+    project = client.post("/api/v1/projects", json={"name": "Regression Config Demo"}).json()
+    config = {
+        "schema_version": 1,
+        "regression": {"quality": {"max_drop_points": 3}},
+        "evaluators": [{"name": "contains-refund", "type": "contains"}],
+    }
+
+    created = client.post(
+        f"/api/v1/projects/{project['id']}/regression-configs",
+        json={"name": "ci", "config": config},
+    ).json()
+
+    listed = client.get(f"/api/v1/projects/{project['id']}/regression-configs")
+    fetched = client.get(f"/api/v1/regression-configs/{created['id']}")
+
+    assert listed.status_code == 200
+    assert [item["id"] for item in listed.json()] == [created["id"]]
+    assert fetched.status_code == 200
+    assert fetched.json()["project_id"] == project["id"]
+    assert fetched.json()["name"] == "ci"
+    assert fetched.json()["version"] == 1
+    assert fetched.json()["schema_version"] == 1
+    assert fetched.json()["config"] == config
+
+
+def test_regression_config_project_scope_is_enforced():
+    project_a = client.post("/api/v1/projects", json={"name": "Regression Config Scope A"}).json()
+    project_b = client.post("/api/v1/projects", json={"name": "Regression Config Scope B"}).json()
+    created = client.post(
+        f"/api/v1/projects/{project_a['id']}/regression-configs",
+        json={"name": "default", "config": {"schema_version": 1}},
+    ).json()
+
+    response = client.get(f"/api/v1/projects/{project_b['id']}/regression-configs/{created['id']}")
+
+    assert response.status_code == 404
 
 
 def test_provider_failure_is_error_not_pass(monkeypatch):
@@ -156,6 +202,30 @@ def test_rejects_oversized_project_name():
     response = client.post("/api/v1/projects", json={"name": "x" * 201})
 
     assert response.status_code == 422
+
+
+def test_rejects_invalid_experiment_provider():
+    response = client.post(
+        "/api/v1/experiments",
+        json={
+            "project_id": "project-1",
+            "name": "bad-provider",
+            "baseline_prompt_version_id": "version-a",
+            "candidate_prompt_version_id": "version-b",
+            "dataset_id": "dataset-1",
+            "provider": "openai",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_local_mode_hides_hosted_secret_endpoints():
+    workspace_response = client.post("/api/v1/workspaces", json={"name": "Local Extra"})
+    secrets_response = client.get("/api/v1/workspaces/local-workspace/provider-secrets")
+
+    assert workspace_response.status_code == 404
+    assert secrets_response.status_code == 404
 
 
 def test_rejects_invalid_dataset_import():

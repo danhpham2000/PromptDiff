@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -28,6 +28,76 @@ class Project(Base):
 
     prompts = relationship("Prompt", cascade="all, delete-orphan")
     datasets = relationship("Dataset", cascade="all, delete-orphan")
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("auth_provider", "auth_subject"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    auth_provider: Mapped[str] = mapped_column(String, default="neon", nullable=False)
+    auth_subject: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str | None] = mapped_column(String)
+    name: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WorkspaceMember(Base):
+    __tablename__ = "workspace_members"
+
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProviderSecret(Base):
+    __tablename__ = "provider_secrets"
+    __table_args__ = (UniqueConstraint("workspace_id", "provider"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    key_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    key_hint: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    actor_id: Mapped[str] = mapped_column(String, nullable=False)
+    workspace_id: Mapped[str] = mapped_column(String, nullable=False)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    resource_type: Mapped[str] = mapped_column(String, nullable=False)
+    resource_id: Mapped[str | None] = mapped_column(String)
+    metadata_json: Mapped[dict | None] = mapped_column("metadata", JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RetentionSetting(Base):
+    __tablename__ = "retention_settings"
+
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True)
+    experiment_metadata_days: Mapped[int] = mapped_column(Integer, default=90, nullable=False)
+    raw_model_output_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    raw_provider_response_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
+    application_log_days: Mapped[int] = mapped_column(Integer, default=14, nullable=False)
+    audit_log_days: Mapped[int] = mapped_column(Integer, default=90, nullable=False)
 
 
 class Prompt(Base):
@@ -207,4 +277,3 @@ class Comparison(Base):
     cost_delta_usd: Mapped[float | None] = mapped_column(Numeric(12, 6))
     regression_status: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-

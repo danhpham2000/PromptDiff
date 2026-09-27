@@ -27,6 +27,54 @@ class ProjectCreate(BaseModel):
     description: str | None = Field(default=None, max_length=MAX_DESCRIPTION_LENGTH)
 
 
+class WorkspaceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
+
+
+class WorkspaceOut(ORMModel):
+    id: str
+    name: str
+    role: str | None = None
+    created_at: datetime
+
+
+class CurrentUserOut(BaseModel):
+    id: str
+    email: str | None = None
+    name: str | None = None
+    active_workspace: dict[str, Any]
+
+
+class ProviderSecretCreate(BaseModel):
+    provider: Literal["groq"]
+    api_key: str = Field(min_length=1, max_length=2_000)
+
+
+class ProviderSecretOut(BaseModel):
+    provider: str
+    configured: bool
+    key_hint: str
+    created_at: datetime
+
+
+class RetentionOut(BaseModel):
+    experiment_metadata_days: int = 90
+    raw_model_output_days: int = 30
+    raw_provider_response_days: int = 7
+    application_log_days: int = 14
+    audit_log_days: int = 90
+
+
+class RegressionConfigOut(ORMModel):
+    id: str
+    project_id: str
+    name: str
+    version: int
+    schema_version: int
+    config: dict[str, Any]
+    created_at: datetime
+
+
 class ProjectOut(ORMModel):
     id: str
     name: str
@@ -135,7 +183,7 @@ class ExperimentCreate(BaseModel):
     baseline_prompt_version_id: str
     candidate_prompt_version_id: str
     dataset_id: str
-    provider: str = "mock"
+    provider: Literal["mock", "groq"] = "mock"
     model: str = "mock-support"
     temperature: float | None = None
     max_tokens: int | None = None
