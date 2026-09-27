@@ -5,15 +5,21 @@ import { useCallback, useEffect, useState } from "react";
 import { CreateProjectForm } from "../components/CreateProjectForm";
 import { DatasetCaseList } from "../components/DatasetCaseList";
 import { DatasetList } from "../components/DatasetList";
+import { ExperimentPanel } from "../components/ExperimentPanel";
 import { ProjectDetails } from "../components/ProjectDetails";
 import { ProjectList } from "../components/ProjectList";
 import { PromptList } from "../components/PromptList";
 import { PromptVersionList } from "../components/PromptVersionList";
 import {
+  cancelExperiment,
   Dataset,
   DatasetCase,
+  Experiment,
+  ExperimentComparison,
+  getExperimentComparison,
   listDatasetCases,
   listDatasets,
+  listExperiments,
   listProjects,
   listPrompts,
   listPromptVersions,
@@ -22,7 +28,7 @@ import {
   PromptVersion,
 } from "../lib/api";
 
-type ProjectPanel = "prompts" | "datasets";
+type ProjectPanel = "prompts" | "datasets" | "experiments";
 
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -30,15 +36,20 @@ export default function Home() {
   const [promptVersions, setPromptVersions] = useState<PromptVersion[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [datasetCases, setDatasetCases] = useState<DatasetCase[]>([]);
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [comparison, setComparison] = useState<ExperimentComparison | null>(null);
   const [activePanel, setActivePanel] = useState<ProjectPanel>("prompts");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   const [isLoadingDatasets, setIsLoadingDatasets] = useState(false);
   const [isLoadingCases, setIsLoadingCases] = useState(false);
+  const [isLoadingExperiments, setIsLoadingExperiments] = useState(false);
+  const [isLoadingComparison, setIsLoadingComparison] = useState(false);
   const [error, setError] = useState("");
 
   const refreshProjects = useCallback(async () => {
@@ -94,6 +105,9 @@ export default function Home() {
         setDatasets([]);
         setSelectedDatasetId(null);
         setDatasetCases([]);
+        setExperiments([]);
+        setSelectedExperimentId(null);
+        setComparison(null);
         return;
       }
 
@@ -180,6 +194,61 @@ export default function Home() {
     };
   }, [selectedProjectId]);
 
+  const refreshExperiments = useCallback(async () => {
+    if (!selectedProjectId) {
+      setExperiments([]);
+      return;
+    }
+
+    setIsLoadingExperiments(true);
+    setError("");
+    try {
+      setExperiments(await listExperiments(selectedProjectId));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not load experiments.");
+    } finally {
+      setIsLoadingExperiments(false);
+    }
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    let isCurrentProject = true;
+    async function loadSelectedProjectExperiments() {
+      if (!selectedProjectId) {
+        setExperiments([]);
+        setSelectedExperimentId(null);
+        setComparison(null);
+        return;
+      }
+
+      setExperiments([]);
+      setSelectedExperimentId(null);
+      setComparison(null);
+      setIsLoadingExperiments(true);
+      setError("");
+      try {
+        const nextExperiments = await listExperiments(selectedProjectId);
+        if (isCurrentProject) {
+          setExperiments(nextExperiments);
+          setSelectedExperimentId(nextExperiments[0]?.id || null);
+        }
+      } catch (requestError) {
+        if (isCurrentProject) {
+          setError(requestError instanceof Error ? requestError.message : "Could not load experiments.");
+        }
+      } finally {
+        if (isCurrentProject) {
+          setIsLoadingExperiments(false);
+        }
+      }
+    }
+
+    void loadSelectedProjectExperiments();
+    return () => {
+      isCurrentProject = false;
+    };
+  }, [selectedProjectId]);
+
   const refreshVersions = useCallback(async () => {
     if (!selectedPromptId) {
       setPromptVersions([]);
@@ -247,6 +316,56 @@ export default function Home() {
     }
   }, [selectedDatasetId]);
 
+  const refreshComparison = useCallback(async () => {
+    if (!selectedExperimentId) {
+      setComparison(null);
+      return;
+    }
+
+    setIsLoadingComparison(true);
+    setError("");
+    try {
+      setComparison(await getExperimentComparison(selectedExperimentId));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not load experiment comparison.");
+    } finally {
+      setIsLoadingComparison(false);
+    }
+  }, [selectedExperimentId]);
+
+  useEffect(() => {
+    let isCurrentExperiment = true;
+    async function loadSelectedExperimentComparison() {
+      if (!selectedExperimentId) {
+        setComparison(null);
+        return;
+      }
+
+      setComparison(null);
+      setIsLoadingComparison(true);
+      setError("");
+      try {
+        const nextComparison = await getExperimentComparison(selectedExperimentId);
+        if (isCurrentExperiment) {
+          setComparison(nextComparison);
+        }
+      } catch (requestError) {
+        if (isCurrentExperiment) {
+          setError(requestError instanceof Error ? requestError.message : "Could not load experiment comparison.");
+        }
+      } finally {
+        if (isCurrentExperiment) {
+          setIsLoadingComparison(false);
+        }
+      }
+    }
+
+    void loadSelectedExperimentComparison();
+    return () => {
+      isCurrentExperiment = false;
+    };
+  }, [selectedExperimentId]);
+
   useEffect(() => {
     let isCurrentDataset = true;
     async function loadSelectedDatasetCases() {
@@ -306,6 +425,27 @@ export default function Home() {
     setDatasetCases((currentCases) => [...currentCases, datasetCase]);
   }
 
+  function handleExperimentCreated(experiment: Experiment) {
+    setExperiments((currentExperiments) => [experiment, ...currentExperiments.filter((item) => item.id !== experiment.id)]);
+    setSelectedExperimentId(experiment.id);
+    setActivePanel("experiments");
+  }
+
+  async function handleCancelExperiment(experimentId: string) {
+    setError("");
+    try {
+      const cancelled = await cancelExperiment(experimentId);
+      setExperiments((currentExperiments) =>
+        currentExperiments.map((experiment) =>
+          experiment.id === experimentId ? { ...experiment, status: cancelled.status, verdict: cancelled.status === "cancelled" ? "CANCELLED" : experiment.verdict } : experiment,
+        ),
+      );
+      await refreshComparison();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not cancel experiment.");
+    }
+  }
+
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || null;
   const selectedPrompt = prompts.find((prompt) => prompt.id === selectedPromptId) || null;
   const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId) || null;
@@ -344,6 +484,9 @@ export default function Home() {
             <button className={activePanel === "datasets" ? "active" : ""} onClick={() => setActivePanel("datasets")} type="button">
               Datasets
             </button>
+            <button className={activePanel === "experiments" ? "active" : ""} onClick={() => setActivePanel("experiments")} type="button">
+              Experiments
+            </button>
           </div>
           {activePanel === "prompts" ? (
             <>
@@ -366,7 +509,8 @@ export default function Home() {
                 versions={promptVersions}
               />
             </>
-          ) : (
+          ) : null}
+          {activePanel === "datasets" ? (
             <>
               <DatasetList
                 datasets={datasets}
@@ -387,7 +531,25 @@ export default function Home() {
                 onRefresh={refreshCases}
               />
             </>
-          )}
+          ) : null}
+          {activePanel === "experiments" ? (
+            <ExperimentPanel
+              comparison={comparison}
+              datasets={datasets}
+              experiments={experiments}
+              isLoadingComparison={isLoadingComparison}
+              isLoadingExperiments={isLoadingExperiments}
+              onCancel={handleCancelExperiment}
+              onCreated={handleExperimentCreated}
+              onError={setError}
+              onRefresh={refreshExperiments}
+              onRefreshComparison={refreshComparison}
+              onSelectExperiment={setSelectedExperimentId}
+              projectId={selectedProjectId}
+              prompts={prompts}
+              selectedExperimentId={selectedExperimentId}
+            />
+          ) : null}
           <CreateProjectForm onCreated={handleProjectCreated} onError={setError} />
         </aside>
       </div>

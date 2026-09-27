@@ -87,6 +87,64 @@ export type DatasetCaseCreateInput = {
   metadata?: Record<string, unknown>;
 };
 
+export type EvaluatorConfig = {
+  name: string;
+  type: string;
+  category?: string;
+  weight?: number;
+  include_in_quality_score?: boolean;
+  required?: boolean;
+  threshold?: number;
+  hard_gate?: boolean;
+};
+
+export type Experiment = {
+  id: string;
+  project_id: string;
+  name: string;
+  status: string;
+  verdict: string | null;
+  dataset_snapshot_id: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+export type ExperimentCreateInput = {
+  project_id: string;
+  name: string;
+  baseline_prompt_version_id: string;
+  candidate_prompt_version_id: string;
+  dataset_id: string;
+  provider: "mock" | "groq";
+  model: string;
+  repetitions: number;
+  timeout_seconds: number;
+  concurrency?: number;
+  evaluators?: EvaluatorConfig[];
+  regression?: Record<string, unknown>;
+};
+
+export type ComparisonItem = {
+  id: string;
+  baseline_run_id: string;
+  candidate_run_id: string;
+  output_diff: unknown;
+  tool_diff: unknown;
+  token_delta: number | null;
+  latency_delta_ms: number | null;
+  cost_delta_usd: number | null;
+  regression_status: string | null;
+};
+
+export type ExperimentComparison = {
+  experiment: {
+    id: string;
+    status: string;
+    verdict: string | null;
+  };
+  items: ComparisonItem[];
+};
+
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -164,4 +222,30 @@ export function createDatasetCase(datasetId: string, input: DatasetCaseCreateInp
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function listExperiments(projectId: string): Promise<Experiment[]> {
+  return apiRequest<Experiment[]>(`/api/v1/experiments?project_id=${encodeURIComponent(projectId)}`);
+}
+
+export function createExperiment(input: ExperimentCreateInput): Promise<Experiment> {
+  return apiRequest<Experiment>("/api/v1/experiments", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function cancelExperiment(experimentId: string): Promise<{ id: string; status: string }> {
+  return apiRequest<{ id: string; status: string }>(`/api/v1/experiments/${encodeURIComponent(experimentId)}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason: "cancelled_from_web" }),
+  });
+}
+
+export function getExperimentComparison(experimentId: string): Promise<ExperimentComparison> {
+  return apiRequest<ExperimentComparison>(`/api/v1/experiments/${encodeURIComponent(experimentId)}/comparison`);
+}
+
+export function experimentExportUrl(experimentId: string, format: "json" | "markdown" | "csv" | "junit") {
+  return `${API_BASE_URL}/api/v1/experiments/${encodeURIComponent(experimentId)}/export?format=${encodeURIComponent(format)}`;
 }
