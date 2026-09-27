@@ -17,6 +17,12 @@ async function createPromptWithVersion(page: import("@playwright/test").Page, pr
   await expect(page.getByText("Version 1").last()).toBeVisible();
 }
 
+async function createAdditionalPromptVersion(page: import("@playwright/test").Page, systemPrompt: string, userTemplate: string) {
+  await page.getByLabel("System prompt").fill(systemPrompt);
+  await page.getByLabel("User template").fill(userTemplate);
+  await page.getByRole("button", { name: "Create version" }).click();
+}
+
 async function createDatasetWithCase(page: import("@playwright/test").Page, datasetName: string) {
   await page.getByRole("button", { name: "Datasets" }).click();
   await page.getByLabel("Dataset name").fill(datasetName);
@@ -60,6 +66,22 @@ test("runs the local PromptDiff workflow end to end", async ({ page }) => {
   await expect(page.getByText("Tool calls")).toBeVisible();
   await expect(page.getByText("Output diff")).toBeVisible();
   await expect(page.getByText("Tool diff")).toBeVisible();
+});
+
+test("compares two prompt versions", async ({ page }) => {
+  await createProject(page, `prompt-diff-${Date.now()}`);
+  await createPromptWithVersion(page, "refund policy", "Escalate enterprise refunds.");
+  await expect(page.getByText("Create another version to compare prompt changes.")).toBeVisible();
+
+  await createAdditionalPromptVersion(page, "Refund monthly plans directly.\nEscalate enterprise refunds.", "{{message}}\nReturn JSON.");
+  await expect(page.getByText("Prompt diff")).toBeVisible();
+  await expect(page.getByLabel("Baseline version")).toBeVisible();
+  await expect(page.getByLabel("Candidate version")).toBeVisible();
+  await expect(page.locator(".prompt-diff-table").getByText("Escalate enterprise refunds.").first()).toBeVisible();
+  await expect(page.locator(".prompt-diff-table").getByText("Refund monthly plans directly.")).toBeVisible();
+
+  await page.getByRole("button", { name: "User template" }).click();
+  await expect(page.locator(".prompt-diff-table").getByText("Return JSON.")).toBeVisible();
 });
 
 test("blocks invalid dataset case JSON before submit", async ({ page }) => {

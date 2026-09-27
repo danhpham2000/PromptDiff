@@ -1,5 +1,6 @@
 import { Prompt, PromptVersion } from "../lib/api";
 import { CreatePromptVersionForm } from "./CreatePromptVersionForm";
+import { PromptVersionDiff } from "./PromptVersionDiff";
 
 type PromptVersionListProps = {
   isLoading: boolean;
@@ -89,6 +90,8 @@ export function PromptVersionList({ isLoading, onCreated, onError, onRefresh, pr
           ))}
         </div>
       ) : null}
+
+      {versions.length ? <PromptVersionDiff versions={versions} /> : null}
     </section>
   );
 }

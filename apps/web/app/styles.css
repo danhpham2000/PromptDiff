@@ -677,6 +677,146 @@ label {
   white-space: pre-wrap;
 }
 
+.prompt-diff-panel {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.diff-mode-tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 260px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 4px;
+}
+
+.diff-mode-tabs button {
+  min-height: 36px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+}
+
+.diff-mode-tabs button.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.diff-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.diff-summary-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.diff-summary-card > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.prompt-diff-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.prompt-diff-table-header,
+.prompt-diff-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.prompt-diff-table-header {
+  border-bottom: 1px solid var(--line);
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.prompt-diff-table-header span,
+.prompt-diff-row pre {
+  padding: 10px 12px;
+}
+
+.prompt-diff-table-header span + span,
+.prompt-diff-row pre + pre {
+  border-left: 1px solid var(--line);
+}
+
+.prompt-diff-row + .prompt-diff-row {
+  border-top: 1px solid var(--line);
+}
+
+.prompt-diff-row pre {
+  display: grid;
+  grid-template-columns: 3ch minmax(0, 1fr);
+  gap: 10px;
+  min-height: 40px;
+  margin: 0;
+  overflow: auto;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.prompt-diff-row pre span {
+  color: var(--muted);
+  user-select: none;
+}
+
+.prompt-diff-row pre.removed::before,
+.prompt-diff-row pre.added::before {
+  align-self: start;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  grid-column: 1 / -1;
+  width: max-content;
+}
+
+.prompt-diff-row pre.removed {
+  background: #fff5f5;
+}
+
+.prompt-diff-row pre.removed::before {
+  content: "Removed";
+  background: #ffd9d6;
+  color: #8f1d16;
+}
+
+.prompt-diff-row pre.added {
+  background: #ecfdf5;
+}
+
+.prompt-diff-row pre.added::before {
+  content: "Added";
+  background: #c7f3df;
+  color: #05603a;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -726,15 +866,25 @@ label {
     position: static;
   }
 
+  .diff-mode-tabs,
   .project-meta,
   .two-column,
   .version-header,
   .version-meta,
   .segmented-control,
   .case-detail-grid,
+  .diff-summary-grid,
   .metric-grid,
-  .run-output-grid {
+  .run-output-grid,
+  .prompt-diff-table-header,
+  .prompt-diff-row {
     grid-template-columns: 1fr;
+  }
+
+  .prompt-diff-table-header span + span,
+  .prompt-diff-row pre + pre {
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 
   .version-header {
