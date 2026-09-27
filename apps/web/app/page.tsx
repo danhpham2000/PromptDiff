@@ -3,21 +3,42 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { CreateProjectForm } from "../components/CreateProjectForm";
+import { DatasetCaseList } from "../components/DatasetCaseList";
+import { DatasetList } from "../components/DatasetList";
 import { ProjectDetails } from "../components/ProjectDetails";
 import { ProjectList } from "../components/ProjectList";
 import { PromptList } from "../components/PromptList";
 import { PromptVersionList } from "../components/PromptVersionList";
-import { listProjects, listPrompts, listPromptVersions, Project, Prompt, PromptVersion } from "../lib/api";
+import {
+  Dataset,
+  DatasetCase,
+  listDatasetCases,
+  listDatasets,
+  listProjects,
+  listPrompts,
+  listPromptVersions,
+  Project,
+  Prompt,
+  PromptVersion,
+} from "../lib/api";
+
+type ProjectPanel = "prompts" | "datasets";
 
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [promptVersions, setPromptVersions] = useState<PromptVersion[]>([]);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [datasetCases, setDatasetCases] = useState<DatasetCase[]>([]);
+  const [activePanel, setActivePanel] = useState<ProjectPanel>("prompts");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [isLoadingDatasets, setIsLoadingDatasets] = useState(false);
+  const [isLoadingCases, setIsLoadingCases] = useState(false);
   const [error, setError] = useState("");
 
   const refreshProjects = useCallback(async () => {
@@ -70,6 +91,9 @@ export default function Home() {
         setPrompts([]);
         setSelectedPromptId(null);
         setPromptVersions([]);
+        setDatasets([]);
+        setSelectedDatasetId(null);
+        setDatasetCases([]);
         return;
       }
 
@@ -96,6 +120,61 @@ export default function Home() {
     }
 
     void loadSelectedProjectPrompts();
+    return () => {
+      isCurrentProject = false;
+    };
+  }, [selectedProjectId]);
+
+  const refreshDatasets = useCallback(async () => {
+    if (!selectedProjectId) {
+      setDatasets([]);
+      return;
+    }
+
+    setIsLoadingDatasets(true);
+    setError("");
+    try {
+      setDatasets(await listDatasets(selectedProjectId));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not load datasets.");
+    } finally {
+      setIsLoadingDatasets(false);
+    }
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    let isCurrentProject = true;
+    async function loadSelectedProjectDatasets() {
+      if (!selectedProjectId) {
+        setDatasets([]);
+        setSelectedDatasetId(null);
+        setDatasetCases([]);
+        return;
+      }
+
+      setDatasets([]);
+      setSelectedDatasetId(null);
+      setDatasetCases([]);
+      setIsLoadingDatasets(true);
+      setError("");
+      try {
+        const nextDatasets = await listDatasets(selectedProjectId);
+        if (isCurrentProject) {
+          setDatasets(nextDatasets);
+          setSelectedDatasetId(nextDatasets[0]?.id || null);
+        }
+      } catch (requestError) {
+        if (isCurrentProject) {
+          setError(requestError instanceof Error ? requestError.message : "Could not load datasets.");
+        }
+      } finally {
+        if (isCurrentProject) {
+          setIsLoadingDatasets(false);
+        }
+      }
+    }
+
+    void loadSelectedProjectDatasets();
     return () => {
       isCurrentProject = false;
     };
@@ -151,6 +230,56 @@ export default function Home() {
     };
   }, [selectedPromptId]);
 
+  const refreshCases = useCallback(async () => {
+    if (!selectedDatasetId) {
+      setDatasetCases([]);
+      return;
+    }
+
+    setIsLoadingCases(true);
+    setError("");
+    try {
+      setDatasetCases(await listDatasetCases(selectedDatasetId));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not load dataset cases.");
+    } finally {
+      setIsLoadingCases(false);
+    }
+  }, [selectedDatasetId]);
+
+  useEffect(() => {
+    let isCurrentDataset = true;
+    async function loadSelectedDatasetCases() {
+      if (!selectedDatasetId) {
+        setDatasetCases([]);
+        return;
+      }
+
+      setDatasetCases([]);
+      setIsLoadingCases(true);
+      setError("");
+      try {
+        const nextCases = await listDatasetCases(selectedDatasetId);
+        if (isCurrentDataset) {
+          setDatasetCases(nextCases);
+        }
+      } catch (requestError) {
+        if (isCurrentDataset) {
+          setError(requestError instanceof Error ? requestError.message : "Could not load dataset cases.");
+        }
+      } finally {
+        if (isCurrentDataset) {
+          setIsLoadingCases(false);
+        }
+      }
+    }
+
+    void loadSelectedDatasetCases();
+    return () => {
+      isCurrentDataset = false;
+    };
+  }, [selectedDatasetId]);
+
   function handleProjectCreated(project: Project) {
     setProjects((currentProjects) => [project, ...currentProjects.filter((item) => item.id !== project.id)]);
     setSelectedProjectId(project.id);
@@ -167,8 +296,19 @@ export default function Home() {
     );
   }
 
+  function handleDatasetCreated(dataset: Dataset) {
+    setDatasets((currentDatasets) => [dataset, ...currentDatasets.filter((item) => item.id !== dataset.id)]);
+    setSelectedDatasetId(dataset.id);
+    setActivePanel("datasets");
+  }
+
+  function handleDatasetCaseCreated(datasetCase: DatasetCase) {
+    setDatasetCases((currentCases) => [...currentCases, datasetCase]);
+  }
+
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || null;
   const selectedPrompt = prompts.find((prompt) => prompt.id === selectedPromptId) || null;
+  const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId) || null;
 
   return (
     <main>
@@ -197,24 +337,57 @@ export default function Home() {
         />
         <aside className="side-stack">
           <ProjectDetails project={selectedProject} />
-          <PromptList
-            isLoading={isLoadingPrompts}
-            onCreated={handlePromptCreated}
-            onError={setError}
-            onRefresh={refreshPrompts}
-            onSelectPrompt={setSelectedPromptId}
-            projectId={selectedProjectId}
-            prompts={prompts}
-            selectedPromptId={selectedPromptId}
-          />
-          <PromptVersionList
-            isLoading={isLoadingVersions}
-            onCreated={handleVersionCreated}
-            onError={setError}
-            onRefresh={refreshVersions}
-            prompt={selectedPrompt}
-            versions={promptVersions}
-          />
+          <div className="segmented-control" aria-label="Project resources">
+            <button className={activePanel === "prompts" ? "active" : ""} onClick={() => setActivePanel("prompts")} type="button">
+              Prompts
+            </button>
+            <button className={activePanel === "datasets" ? "active" : ""} onClick={() => setActivePanel("datasets")} type="button">
+              Datasets
+            </button>
+          </div>
+          {activePanel === "prompts" ? (
+            <>
+              <PromptList
+                isLoading={isLoadingPrompts}
+                onCreated={handlePromptCreated}
+                onError={setError}
+                onRefresh={refreshPrompts}
+                onSelectPrompt={setSelectedPromptId}
+                projectId={selectedProjectId}
+                prompts={prompts}
+                selectedPromptId={selectedPromptId}
+              />
+              <PromptVersionList
+                isLoading={isLoadingVersions}
+                onCreated={handleVersionCreated}
+                onError={setError}
+                onRefresh={refreshVersions}
+                prompt={selectedPrompt}
+                versions={promptVersions}
+              />
+            </>
+          ) : (
+            <>
+              <DatasetList
+                datasets={datasets}
+                isLoading={isLoadingDatasets}
+                onCreated={handleDatasetCreated}
+                onError={setError}
+                onRefresh={refreshDatasets}
+                onSelectDataset={setSelectedDatasetId}
+                projectId={selectedProjectId}
+                selectedDatasetId={selectedDatasetId}
+              />
+              <DatasetCaseList
+                cases={datasetCases}
+                dataset={selectedDataset}
+                isLoading={isLoadingCases}
+                onCreated={handleDatasetCaseCreated}
+                onError={setError}
+                onRefresh={refreshCases}
+              />
+            </>
+          )}
           <CreateProjectForm onCreated={handleProjectCreated} onError={setError} />
         </aside>
       </div>

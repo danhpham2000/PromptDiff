@@ -50,6 +50,43 @@ export type PromptVersionCreateInput = {
   schema_version?: number;
 };
 
+export type Dataset = {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+};
+
+export type DatasetCreateInput = {
+  project_id: string;
+  name: string;
+  description?: string;
+};
+
+export type DatasetImportInput = {
+  project_id: string;
+  content: string;
+  format: "yaml" | "json";
+};
+
+export type DatasetCase = {
+  id: string;
+  dataset_id: string;
+  name: string | null;
+  input: Record<string, unknown>;
+  expected_output: Record<string, unknown> | null;
+  metadata_json: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type DatasetCaseCreateInput = {
+  name?: string;
+  input: Record<string, unknown>;
+  expected_output?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -95,6 +132,35 @@ export function listPromptVersions(promptId: string): Promise<PromptVersion[]> {
 
 export function createPromptVersion(promptId: string, input: PromptVersionCreateInput): Promise<PromptVersion> {
   return apiRequest<PromptVersion>(`/api/v1/prompts/${encodeURIComponent(promptId)}/versions`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function listDatasets(projectId: string): Promise<Dataset[]> {
+  return apiRequest<Dataset[]>(`/api/v1/datasets?project_id=${encodeURIComponent(projectId)}`);
+}
+
+export function createDataset(input: DatasetCreateInput): Promise<Dataset> {
+  return apiRequest<Dataset>("/api/v1/datasets", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function importDataset(input: DatasetImportInput): Promise<Dataset> {
+  return apiRequest<Dataset>("/api/v1/datasets/import", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function listDatasetCases(datasetId: string): Promise<DatasetCase[]> {
+  return apiRequest<DatasetCase[]>(`/api/v1/datasets/${encodeURIComponent(datasetId)}/cases`);
+}
+
+export function createDatasetCase(datasetId: string, input: DatasetCaseCreateInput): Promise<DatasetCase> {
+  return apiRequest<DatasetCase>(`/api/v1/datasets/${encodeURIComponent(datasetId)}/cases`, {
     method: "POST",
     body: JSON.stringify(input),
   });
