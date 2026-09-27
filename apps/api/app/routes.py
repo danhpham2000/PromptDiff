@@ -633,26 +633,76 @@ def cancel_experiment(
     return {"id": experiment.id, "status": "cancelled", "completed_runs": 0, "pending_runs": 0}
 
 
+def _run_detail(db: Session, run_id: str) -> dict[str, Any] | None:
+    run = db.get(models.Run, run_id)
+    if run is None:
+        return None
+    tool_calls = db.scalars(select(models.ToolCall).where(models.ToolCall.run_id == run.id).order_by(models.ToolCall.sequence_number)).all()
+    evaluations = db.scalars(select(models.Evaluation).where(models.Evaluation.run_id == run.id).order_by(models.Evaluation.created_at)).all()
+    output = run.output or {}
+    return {
+        "id": run.id,
+        "status": run.status,
+        "output": {"content": output.get("content")},
+        "input_tokens": run.input_tokens,
+        "output_tokens": run.output_tokens,
+        "total_tokens": run.total_tokens,
+        "latency_ms": run.latency_ms,
+        "estimated_cost_usd": None if run.estimated_cost_usd is None else float(run.estimated_cost_usd),
+        "error_message": run.error_message,
+        "tool_calls": [
+            {
+                "sequence_number": call.sequence_number,
+                "name": call.tool_name,
+                "arguments": call.arguments,
+                "result": call.result,
+            }
+            for call in tool_calls
+        ],
+        "evaluations": [
+            {
+                "evaluator_name": evaluation.evaluator_name,
+                "category": evaluation.category,
+                "score": None if evaluation.score is None else float(evaluation.score),
+                "weight": None if evaluation.weight is None else float(evaluation.weight),
+                "include_in_quality_score": evaluation.include_in_quality_score,
+                "passed": evaluation.passed,
+                "state": evaluation.state,
+                "hard_gate": evaluation.hard_gate,
+                "details": evaluation.details,
+            }
+            for evaluation in evaluations
+        ],
+    }
+
+
+def _comparison_item(db: Session, row: models.Comparison) -> dict[str, Any]:
+    baseline_run = require(db.get(models.Run, row.baseline_run_id), "baseline run")
+    return {
+        "id": row.id,
+        "baseline_run_id": row.baseline_run_id,
+        "candidate_run_id": row.candidate_run_id,
+        "dataset_case_id": baseline_run.dataset_case_id,
+        "repetition": baseline_run.repetition,
+        "input": baseline_run.input,
+        "baseline": _run_detail(db, row.baseline_run_id),
+        "candidate": _run_detail(db, row.candidate_run_id),
+        "output_diff": row.output_diff,
+        "tool_diff": row.tool_diff,
+        "token_delta": row.token_delta,
+        "latency_delta_ms": row.latency_delta_ms,
+        "cost_delta_usd": None if row.cost_delta_usd is None else float(row.cost_delta_usd),
+        "regression_status": row.regression_status,
+    }
+
+
 @router.get("/experiments/{experiment_id}/comparison")
 def comparison(experiment_id: str, ctx: AuthContext = Depends(current_context), db: Session = Depends(get_db)) -> dict[str, Any]:
     experiment = require_experiment(db, experiment_id, ctx)
     rows = list(db.scalars(select(models.Comparison).where(models.Comparison.experiment_id == experiment_id)))
     return {
         "experiment": {"id": experiment.id, "status": experiment.status, "verdict": experiment.verdict},
-        "items": [
-            {
-                "id": row.id,
-                "baseline_run_id": row.baseline_run_id,
-                "candidate_run_id": row.candidate_run_id,
-                "output_diff": row.output_diff,
-                "tool_diff": row.tool_diff,
-                "token_delta": row.token_delta,
-                "latency_delta_ms": row.latency_delta_ms,
-                "cost_delta_usd": None if row.cost_delta_usd is None else float(row.cost_delta_usd),
-                "regression_status": row.regression_status,
-            }
-            for row in rows
-        ],
+        "items": [_comparison_item(db, row) for row in rows],
     }
 
 

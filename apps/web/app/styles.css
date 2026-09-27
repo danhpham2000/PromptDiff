@@ -411,6 +411,126 @@ label {
   gap: 10px;
 }
 
+.case-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.case-selector-list {
+  display: grid;
+  gap: 8px;
+}
+
+.case-selector-row {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 12px;
+  text-align: left;
+}
+
+.case-selector-row:hover {
+  border-color: var(--accent);
+  background: #fbfbf7;
+}
+
+.case-selector-row.selected {
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+
+.case-selector-row > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.case-selector-row span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.case-selector-row strong {
+  color: var(--text);
+}
+
+.case-detail {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.result-section {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.metric-grid > div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.metric-grid dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.metric-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.run-output-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.result-column,
+.mini-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mini-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.json-block {
+  max-height: 260px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: #fbfbf8;
+  color: var(--text);
+  padding: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .version-form {
   display: grid;
   gap: 12px;
@@ -535,7 +655,10 @@ label {
   .two-column,
   .version-header,
   .version-meta,
-  .segmented-control {
+  .segmented-control,
+  .case-detail-grid,
+  .metric-grid,
+  .run-output-grid {
     grid-template-columns: 1fr;
   }
 

@@ -92,6 +92,20 @@ def test_local_experiment_flow():
 
     comparison = client.get(f"/api/v1/experiments/{experiment['id']}/comparison").json()
     assert len(comparison["items"]) == 2
+    item = comparison["items"][0]
+    assert item["dataset_case_id"]
+    assert item["repetition"] == 1
+    assert item["input"]
+    assert item["baseline"]["status"] == "completed"
+    assert item["candidate"]["status"] == "completed"
+    assert item["baseline"]["output"]["content"].startswith("Mock response using")
+    assert item["candidate"]["output"]["content"].startswith("Mock response using")
+    assert "raw_response" not in item["baseline"]["output"]
+    assert "raw_response" not in item["candidate"]["output"]
+    assert item["baseline"]["tool_calls"]
+    assert item["candidate"]["tool_calls"]
+    assert item["baseline"]["evaluations"][0]["evaluator_name"] == "tool-selection"
+    assert item["candidate"]["evaluations"][0]["evaluator_name"] == "tool-selection"
 
 
 def test_regression_config_list_and_get():

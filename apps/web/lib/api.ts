@@ -124,10 +124,50 @@ export type ExperimentCreateInput = {
   regression?: Record<string, unknown>;
 };
 
+export type ComparisonToolCall = {
+  sequence_number: number;
+  name: string;
+  arguments: unknown;
+  result: unknown;
+};
+
+export type ComparisonEvaluation = {
+  evaluator_name: string;
+  category: string | null;
+  score: number | null;
+  weight: number | null;
+  include_in_quality_score: boolean;
+  passed: boolean | null;
+  state: string;
+  hard_gate: boolean;
+  details: unknown;
+};
+
+export type ComparisonRunDetail = {
+  id: string;
+  status: string;
+  output: {
+    content: string | null;
+  } | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  latency_ms: number | null;
+  estimated_cost_usd: number | null;
+  error_message: string | null;
+  tool_calls: ComparisonToolCall[];
+  evaluations: ComparisonEvaluation[];
+};
+
 export type ComparisonItem = {
   id: string;
   baseline_run_id: string;
   candidate_run_id: string;
+  dataset_case_id: string;
+  repetition: number;
+  input: unknown;
+  baseline: ComparisonRunDetail | null;
+  candidate: ComparisonRunDetail | null;
   output_diff: unknown;
   tool_diff: unknown;
   token_delta: number | null;
