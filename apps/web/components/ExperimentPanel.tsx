@@ -514,8 +514,12 @@ export function ExperimentPanel({
                 <span>
                   <strong>{experiment.name}</strong>
                   <span>{experiment.status}</span>
+                  <span>Created {formatDate(experiment.created_at)}</span>
                 </span>
-                <span>{experiment.verdict || "No verdict"}</span>
+                <span className="experiment-row-meta">
+                  <strong>{experiment.verdict || "Pending"}</strong>
+                  <span>{experiment.dataset_snapshot_id ? "Snapshot ready" : "Snapshot pending"}</span>
+                </span>
               </button>
             ))}
           </div>
