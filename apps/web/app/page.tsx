@@ -54,6 +54,7 @@ export default function Home() {
   const [isLoadingExperiments, setIsLoadingExperiments] = useState(false);
   const [isLoadingComparison, setIsLoadingComparison] = useState(false);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+  const [progressRefreshFailures, setProgressRefreshFailures] = useState(0);
   const [error, setError] = useState("");
 
   const refreshProjects = useCallback(async () => {
@@ -342,6 +343,7 @@ export default function Home() {
   const refreshProgress = useCallback(async () => {
     if (!selectedExperimentId) {
       setExperimentProgress(null);
+      setProgressRefreshFailures(0);
       return null;
     }
 
@@ -350,6 +352,7 @@ export default function Home() {
     try {
       const progress = await getExperimentProgress(selectedExperimentId);
       setExperimentProgress(progress);
+      setProgressRefreshFailures(0);
       setExperiments((currentExperiments) =>
         currentExperiments.map((experiment) =>
           experiment.id === progress.id ? { ...experiment, status: progress.status, verdict: progress.verdict } : experiment,
@@ -358,6 +361,7 @@ export default function Home() {
       return progress;
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not load experiment progress.");
+      setProgressRefreshFailures((failures) => failures + 1);
       return null;
     } finally {
       setIsLoadingProgress(false);
@@ -370,6 +374,7 @@ export default function Home() {
       if (!selectedExperimentId) {
         setComparison(null);
         setExperimentProgress(null);
+        setProgressRefreshFailures(0);
         return;
       }
 
@@ -385,10 +390,12 @@ export default function Home() {
         if (isCurrentExperiment) {
           setComparison(nextComparison);
           setExperimentProgress(nextProgress);
+          setProgressRefreshFailures(0);
         }
       } catch (requestError) {
         if (isCurrentExperiment) {
           setError(requestError instanceof Error ? requestError.message : "Could not load experiment results.");
+          setProgressRefreshFailures((failures) => failures + 1);
         }
       } finally {
         if (isCurrentExperiment) {
@@ -405,7 +412,12 @@ export default function Home() {
   }, [selectedExperimentId]);
 
   useEffect(() => {
-    if (!selectedExperimentId || !experimentProgress || !["created", "queued", "running", "cancelling"].includes(experimentProgress.status)) {
+    if (
+      !selectedExperimentId ||
+      !experimentProgress ||
+      progressRefreshFailures >= 3 ||
+      !["created", "queued", "running", "cancelling"].includes(experimentProgress.status)
+    ) {
       return;
     }
     const interval = window.setInterval(() => {
@@ -417,7 +429,7 @@ export default function Home() {
       });
     }, 2000);
     return () => window.clearInterval(interval);
-  }, [experimentProgress, refreshComparison, refreshExperiments, refreshProgress, selectedExperimentId]);
+  }, [experimentProgress, progressRefreshFailures, refreshComparison, refreshExperiments, refreshProgress, selectedExperimentId]);
 
   useEffect(() => {
     let isCurrentDataset = true;

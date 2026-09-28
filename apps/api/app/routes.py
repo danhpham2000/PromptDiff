@@ -632,7 +632,12 @@ def _expected_run_count(db: Session, experiment: models.Experiment) -> int | Non
     config = db.get(models.RegressionConfig, experiment.regression_config_id) if experiment.regression_config_id else None
     repetitions = ((config.config if config else {}).get("execution") or {}).get("repetitions", 1)
     cases = snapshot.snapshot.get("cases") or []
-    return len(cases) * int(repetitions or 1) * 2
+    try:
+        parsed_repetitions = int(repetitions or 1)
+    except (TypeError, ValueError):
+        parsed_repetitions = 1
+    parsed_repetitions = min(max(parsed_repetitions, 1), 5)
+    return len(cases) * parsed_repetitions * 2
 
 
 @router.get("/experiments/{experiment_id}/progress")

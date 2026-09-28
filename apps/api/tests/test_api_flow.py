@@ -199,6 +199,52 @@ def test_cancelled_experiment_progress_counts_partial_results():
     assert progress["pending_runs"] == 0
 
 
+def test_experiment_progress_defaults_malformed_repetitions():
+    project = client.post("/api/v1/projects", json={"name": "Malformed Progress Demo"}).json()
+    prompt_a = client.post("/api/v1/prompts", json={"project_id": project["id"], "name": "baseline"}).json()
+    prompt_b = client.post("/api/v1/prompts", json={"project_id": project["id"], "name": "candidate"}).json()
+    version_a = client.post(f"/api/v1/prompts/{prompt_a['id']}/versions", json={"system_prompt": "A", "user_template": "{{message}}"}).json()
+    version_b = client.post(f"/api/v1/prompts/{prompt_b['id']}/versions", json={"system_prompt": "B", "user_template": "{{message}}"}).json()
+    dataset = client.post("/api/v1/datasets", json={"project_id": project["id"], "name": "cases"}).json()
+
+    with TestingSession() as db:
+        snapshot = models.DatasetSnapshot(
+            dataset_id=dataset["id"],
+            schema_version=1,
+            content_hash="malformed-repetition-progress",
+            snapshot={"cases": [{"id": "case-1", "input": {"message": "hello"}}]},
+        )
+        config = models.RegressionConfig(
+            project_id=project["id"],
+            name="malformed-config",
+            version=1,
+            schema_version=1,
+            config={"execution": {"repetitions": "not-a-number"}},
+            created_by="local-user",
+        )
+        db.add_all([snapshot, config])
+        db.flush()
+        experiment = models.Experiment(
+            project_id=project["id"],
+            name="malformed-progress",
+            baseline_prompt_version_id=version_a["id"],
+            candidate_prompt_version_id=version_b["id"],
+            dataset_id=dataset["id"],
+            dataset_snapshot_id=snapshot.id,
+            regression_config_id=config.id,
+            regression_config_version=1,
+            status="queued",
+        )
+        db.add(experiment)
+        db.commit()
+        experiment_id = experiment.id
+
+    response = client.get(f"/api/v1/experiments/{experiment_id}/progress")
+
+    assert response.status_code == 200
+    assert response.json()["total_runs"] == 2
+
+
 def test_regression_config_list_and_get():
     project = client.post("/api/v1/projects", json={"name": "Regression Config Demo"}).json()
     config = {
