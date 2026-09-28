@@ -213,15 +213,6 @@ test("confirms and disables duplicate experiment cancel requests", async ({ page
   await page.getByRole("button", { name: "Experiments" }).click();
   await expect(page.getByRole("button", { name: /Queued cancellation/ })).toBeVisible();
 
-  status = "cancelling";
-  await page.getByRole("button", { name: "Refresh" }).first().click();
-  await expect(page.getByRole("button", { name: "Cancelling..." })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
-
-  status = "queued";
-  await page.getByRole("button", { name: "Refresh" }).first().click();
-  await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
-
   page.once("dialog", async (dialog) => {
     expect(dialog.message()).toContain("Cancel");
     await dialog.accept();

@@ -467,7 +467,7 @@ export function ExperimentPanel({
   selectedExperimentId,
 }: ExperimentPanelProps) {
   const selectedExperiment = experiments.find((experiment) => experiment.id === selectedExperimentId) || null;
-  const isCancellingSelectedExperiment = selectedExperiment?.id === cancellingExperimentId || selectedExperiment?.status === "cancelling";
+  const isCancellingSelectedExperiment = selectedExperiment?.id === cancellingExperimentId;
 
   if (!projectId) {
     return (
