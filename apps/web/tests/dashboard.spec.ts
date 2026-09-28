@@ -60,6 +60,7 @@ async function createCompletedExperiment(page: import("@playwright/test").Page, 
   await expect(summary.getByText("Changed", { exact: true })).toBeVisible();
   await expect(summary.getByText("Token delta", { exact: true })).toBeVisible();
   await expect(summary.getByText("Latency delta", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Cost delta", { exact: true })).toBeVisible();
   await expect(summary.getByText("Hard gates", { exact: true })).toBeVisible();
   await expect(summary.getByText("Evaluator failures", { exact: true })).toBeVisible();
 }

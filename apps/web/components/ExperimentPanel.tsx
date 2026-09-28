@@ -182,10 +182,11 @@ function countEvaluatorFailures(items: ComparisonItem[]) {
 
 function summarizeComparison(items: ComparisonItem[]) {
   const changed = items.filter((item) => item.regression_status === "changed").length;
+  const unchanged = items.filter((item) => item.regression_status === "unchanged").length;
   return {
     cases: items.length,
     changed,
-    unchanged: items.length - changed,
+    unchanged,
     meanTokenDelta: meanNullable(items.map((item) => item.token_delta)),
     meanLatencyDelta: meanNullable(items.map((item) => item.latency_delta_ms)),
     meanCostDelta: meanNullable(items.map((item) => item.cost_delta_usd)),
