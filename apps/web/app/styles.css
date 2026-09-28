@@ -562,6 +562,38 @@ label {
   overflow-wrap: anywhere;
 }
 
+.progress-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.progress-bar {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--soft);
+}
+
+.progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.progress-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.status-note {
+  color: var(--text);
+  font-weight: 650;
+}
+
 .run-output-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -875,6 +907,7 @@ label {
   .case-detail-grid,
   .diff-summary-grid,
   .metric-grid,
+  .progress-grid,
   .run-output-grid,
   .prompt-diff-table-header,
   .prompt-diff-row {

@@ -109,6 +109,20 @@ export type Experiment = {
   completed_at: string | null;
 };
 
+export type ExperimentProgress = {
+  id: string;
+  status: string;
+  verdict: string | null;
+  created_at: string;
+  completed_at: string | null;
+  elapsed_seconds: number;
+  total_runs: number | null;
+  completed_runs: number;
+  failed_runs: number;
+  pending_runs: number;
+  progress_percent: number | null;
+};
+
 export type ExperimentCreateInput = {
   project_id: string;
   name: string;
@@ -280,6 +294,10 @@ export function cancelExperiment(experimentId: string): Promise<{ id: string; st
     method: "POST",
     body: JSON.stringify({ reason: "cancelled_from_web" }),
   });
+}
+
+export function getExperimentProgress(experimentId: string): Promise<ExperimentProgress> {
+  return apiRequest<ExperimentProgress>(`/api/v1/experiments/${encodeURIComponent(experimentId)}/progress`);
 }
 
 export function getExperimentComparison(experimentId: string): Promise<ExperimentComparison> {

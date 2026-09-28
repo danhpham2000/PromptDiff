@@ -49,8 +49,11 @@ async function createCompletedExperiment(page: import("@playwright/test").Page, 
   await page.getByRole("button", { name: "Run experiment" }).click();
 
   await expect(page.getByRole("button", { name: new RegExp(name) })).toBeVisible();
-  await expect(page.getByText("Verdict")).toBeVisible();
+  await expect(page.getByText("Verdict").first()).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: /PASS|FAIL|ERROR|CANCELLED|Pending/ }).first()).toBeVisible();
+  await expect(page.getByText("Progress")).toBeVisible();
+  await expect(page.getByText("Completed runs")).toBeVisible();
+  await expect(page.getByText("100%")).toBeVisible();
 }
 
 test("runs the local PromptDiff workflow end to end", async ({ page }) => {
