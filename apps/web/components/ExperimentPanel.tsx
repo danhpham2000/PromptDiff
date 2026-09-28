@@ -112,6 +112,22 @@ function money(value: number | null) {
   return value === null ? "n/a" : `$${value.toFixed(6)}`;
 }
 
+function signedMetric(value: number | null, suffix = "") {
+  if (value === null) {
+    return "n/a";
+  }
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value}${suffix}`;
+}
+
+function signedMoney(value: number | null) {
+  if (value === null) {
+    return "n/a";
+  }
+  const sign = value > 0 ? "+" : "";
+  return `${sign}$${value.toFixed(6)}`;
+}
+
 function prettyJson(value: unknown) {
   if (value === null || value === undefined) {
     return "n/a";
@@ -134,6 +150,49 @@ function evaluationLabel(evaluation: ComparisonEvaluation) {
     return "Hard gate passed";
   }
   return evaluation.state;
+}
+
+function meanNullable(values: Array<number | null>) {
+  const numbers = values.filter((value): value is number => value !== null);
+  if (!numbers.length) {
+    return null;
+  }
+  return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+}
+
+function allEvaluations(item: ComparisonItem) {
+  return [...(item.baseline?.evaluations || []), ...(item.candidate?.evaluations || [])];
+}
+
+function countHardGateFailures(items: ComparisonItem[]) {
+  return items.reduce(
+    (count, item) => count + allEvaluations(item).filter((evaluation) => evaluation.hard_gate && evaluation.passed === false).length,
+    0,
+  );
+}
+
+function countEvaluatorFailures(items: ComparisonItem[]) {
+  return items.reduce(
+    (count, item) =>
+      count +
+      allEvaluations(item).filter((evaluation) => !evaluation.hard_gate && (evaluation.passed === false || evaluation.state === "error")).length,
+    0,
+  );
+}
+
+function summarizeComparison(items: ComparisonItem[]) {
+  const changed = items.filter((item) => item.regression_status === "changed").length;
+  const unchanged = items.filter((item) => item.regression_status === "unchanged").length;
+  return {
+    cases: items.length,
+    changed,
+    unchanged,
+    meanTokenDelta: meanNullable(items.map((item) => item.token_delta)),
+    meanLatencyDelta: meanNullable(items.map((item) => item.latency_delta_ms)),
+    meanCostDelta: meanNullable(items.map((item) => item.cost_delta_usd)),
+    hardGateFailures: countHardGateFailures(items),
+    evaluatorFailures: countEvaluatorFailures(items),
+  };
 }
 
 function RunMetricSummary({ run }: { run: ComparisonRunDetail | null }) {
@@ -218,6 +277,56 @@ function RunToolCalls({ label, run }: { label: string; run: ComparisonRunDetail 
         </article>
       ))}
     </div>
+  );
+}
+
+function ResultsSummary({ comparison }: { comparison: ExperimentComparison }) {
+  const summary = summarizeComparison(comparison.items);
+  const verdict = comparison.experiment.verdict || "Pending";
+
+  return (
+    <section className="results-summary" aria-label="Results summary">
+      <div className="version-header">
+        <strong>Results summary</strong>
+        <span>Verdict: {verdict}</span>
+      </div>
+      <dl className="summary-grid">
+        <div className="summary-card verdict-card">
+          <dt>Verdict</dt>
+          <dd>{verdict}</dd>
+        </div>
+        <div className="summary-card">
+          <dt>Cases</dt>
+          <dd>{summary.cases}</dd>
+        </div>
+        <div className="summary-card">
+          <dt>Changed</dt>
+          <dd>
+            {summary.changed} changed / {summary.unchanged} unchanged
+          </dd>
+        </div>
+        <div className="summary-card">
+          <dt>Token delta</dt>
+          <dd>{signedMetric(summary.meanTokenDelta)}</dd>
+        </div>
+        <div className="summary-card">
+          <dt>Latency delta</dt>
+          <dd>{signedMetric(summary.meanLatencyDelta, " ms")}</dd>
+        </div>
+        <div className="summary-card">
+          <dt>Cost delta</dt>
+          <dd>{signedMoney(summary.meanCostDelta)}</dd>
+        </div>
+        <div className="summary-card">
+          <dt>Hard gates</dt>
+          <dd>{summary.hardGateFailures} failed</dd>
+        </div>
+        <div className="summary-card">
+          <dt>Evaluator failures</dt>
+          <dd>{summary.evaluatorFailures} failed or errored</dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 
@@ -461,6 +570,8 @@ export function ExperimentPanel({
                 </a>
               ))}
             </div>
+
+            {comparison ? <ResultsSummary comparison={comparison} /> : null}
 
             {isLoadingComparison ? <div className="empty-state compact">Loading comparison...</div> : <ComparisonRows items={comparison?.items || []} />}
           </>
