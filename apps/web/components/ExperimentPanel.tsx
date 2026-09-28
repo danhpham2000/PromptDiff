@@ -280,9 +280,9 @@ function RunToolCalls({ label, run }: { label: string; run: ComparisonRunDetail 
   );
 }
 
-function ResultsSummary({ comparison }: { comparison: ExperimentComparison | null }) {
-  const summary = summarizeComparison(comparison?.items || []);
-  const verdict = comparison?.experiment.verdict || "Pending";
+function ResultsSummary({ comparison }: { comparison: ExperimentComparison }) {
+  const summary = summarizeComparison(comparison.items);
+  const verdict = comparison.experiment.verdict || "Pending";
 
   return (
     <section className="results-summary" aria-label="Results summary">
