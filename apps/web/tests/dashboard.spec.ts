@@ -54,6 +54,14 @@ async function createCompletedExperiment(page: import("@playwright/test").Page, 
   await expect(page.getByText("Progress")).toBeVisible();
   await expect(page.getByText("Completed runs")).toBeVisible();
   await expect(page.getByText("100%")).toBeVisible();
+  const summary = page.getByLabel("Results summary");
+  await expect(summary.getByText("Verdict", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Cases", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Changed", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Token delta", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Latency delta", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Hard gates", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Evaluator failures", { exact: true })).toBeVisible();
 }
 
 test("runs the local PromptDiff workflow end to end", async ({ page }) => {
