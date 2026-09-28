@@ -6,6 +6,7 @@ import { ComparisonEvaluation, ComparisonItem, ComparisonRunDetail, Experiment, 
 import { CreateExperimentForm } from "./CreateExperimentForm";
 
 type ExperimentPanelProps = {
+  cancellingExperimentId: string | null;
   comparison: ExperimentComparison | null;
   datasets: Dataset[];
   experiments: Experiment[];
@@ -447,6 +448,7 @@ function ComparisonRows({ items }: { items: ComparisonItem[] }) {
 }
 
 export function ExperimentPanel({
+  cancellingExperimentId,
   comparison,
   datasets,
   experiments,
@@ -465,6 +467,7 @@ export function ExperimentPanel({
   selectedExperimentId,
 }: ExperimentPanelProps) {
   const selectedExperiment = experiments.find((experiment) => experiment.id === selectedExperimentId) || null;
+  const isCancellingSelectedExperiment = selectedExperiment?.id === cancellingExperimentId;
 
   if (!projectId) {
     return (
@@ -560,8 +563,13 @@ export function ExperimentPanel({
 
             <div className="button-row">
               {canCancel(selectedExperiment) ? (
-                <button className="secondary-button" type="button" onClick={() => onCancel(selectedExperiment.id)}>
-                  Cancel
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => onCancel(selectedExperiment.id)}
+                  disabled={isCancellingSelectedExperiment}
+                >
+                  {isCancellingSelectedExperiment ? "Cancelling..." : "Cancel"}
                 </button>
               ) : null}
               {(["json", "markdown", "csv", "junit"] as const).map((format) => (
