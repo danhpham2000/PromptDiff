@@ -123,3 +123,101 @@ test("shows export links for a completed experiment", async ({ page }) => {
   await expect(page.getByRole("link", { name: "csv" })).toBeVisible();
   await expect(page.getByRole("link", { name: "junit" })).toBeVisible();
 });
+
+test("confirms and disables duplicate experiment cancel requests", async ({ page }) => {
+  const now = new Date().toISOString();
+  let cancelRequests = 0;
+  let status = "queued";
+
+  await page.route("**/api/v1/projects", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "project-cancel",
+          name: "Cancel project",
+          slug: "cancel-project",
+          description: null,
+          created_at: now,
+          updated_at: now,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/v1/prompts?*", async (route) => {
+    await route.fulfill({ contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/v1/datasets?*", async (route) => {
+    await route.fulfill({ contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/v1/experiments?*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "experiment-cancel",
+          project_id: "project-cancel",
+          name: "Queued cancellation",
+          status,
+          verdict: status === "cancelled" ? "CANCELLED" : null,
+          dataset_snapshot_id: null,
+          created_at: now,
+          completed_at: status === "cancelled" ? now : null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/v1/experiments/experiment-cancel/progress", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "experiment-cancel",
+        status,
+        verdict: status === "cancelled" ? "CANCELLED" : null,
+        created_at: now,
+        completed_at: status === "cancelled" ? now : null,
+        elapsed_seconds: 2,
+        total_runs: 2,
+        completed_runs: status === "cancelled" ? 1 : 0,
+        failed_runs: 0,
+        pending_runs: status === "cancelled" ? 1 : 2,
+        progress_percent: status === "cancelled" ? 50 : 0,
+      }),
+    });
+  });
+  await page.route("**/api/v1/experiments/experiment-cancel/comparison", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        experiment: { id: "experiment-cancel", status, verdict: status === "cancelled" ? "CANCELLED" : null },
+        items: [],
+      }),
+    });
+  });
+  await page.route("**/api/v1/experiments/experiment-cancel/cancel", async (route) => {
+    cancelRequests += 1;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    status = "cancelled";
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ id: "experiment-cancel", status }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Experiments" }).click();
+  await expect(page.getByRole("button", { name: /Queued cancellation/ })).toBeVisible();
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("Cancel");
+    await dialog.accept();
+  });
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+
+  const cancellingButton = page.getByRole("button", { name: "Cancelling..." });
+  await expect(cancellingButton).toBeDisabled();
+  await expect(page.getByText("cancelling").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
+  await expect(page.getByText("The experiment was stopped. Completed partial results are still available.")).toBeVisible();
+  expect(cancelRequests).toBe(1);
+});

@@ -54,6 +54,7 @@ export default function Home() {
   const [isLoadingExperiments, setIsLoadingExperiments] = useState(false);
   const [isLoadingComparison, setIsLoadingComparison] = useState(false);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+  const [cancellingExperimentId, setCancellingExperimentId] = useState<string | null>(null);
   const [progressRefreshFailures, setProgressRefreshFailures] = useState(0);
   const [error, setError] = useState("");
 
@@ -497,7 +498,21 @@ export default function Home() {
   }
 
   async function handleCancelExperiment(experimentId: string) {
+    const experiment = experiments.find((item) => item.id === experimentId);
+    if (!experiment || cancellingExperimentId) {
+      return;
+    }
+    const shouldCancel = window.confirm(`Cancel experiment "${experiment.name}"? Completed partial results will remain available.`);
+    if (!shouldCancel) {
+      return;
+    }
+
     setError("");
+    setCancellingExperimentId(experimentId);
+    setExperiments((currentExperiments) =>
+      currentExperiments.map((item) => (item.id === experimentId ? { ...item, status: "cancelling" } : item)),
+    );
+    setExperimentProgress((currentProgress) => (currentProgress?.id === experimentId ? { ...currentProgress, status: "cancelling" } : currentProgress));
     try {
       const cancelled = await cancelExperiment(experimentId);
       setExperiments((currentExperiments) =>
@@ -508,7 +523,11 @@ export default function Home() {
       await refreshProgress();
       await refreshComparison();
     } catch (requestError) {
+      setExperimentProgress((currentProgress) => (currentProgress?.id === experimentId ? { ...currentProgress, status: experiment.status } : currentProgress));
+      await refreshExperiments();
       setError(requestError instanceof Error ? requestError.message : "Could not cancel experiment.");
+    } finally {
+      setCancellingExperimentId(null);
     }
   }
 
@@ -614,6 +633,7 @@ export default function Home() {
           ) : null}
           {activePanel === "experiments" ? (
             <ExperimentPanel
+              cancellingExperimentId={cancellingExperimentId}
               comparison={comparison}
               datasets={datasets}
               experiments={experiments}
