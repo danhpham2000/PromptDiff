@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -612,6 +612,56 @@ def list_experiments(project_id: str | None = None, ctx: AuthContext = Depends(c
 @router.get("/experiments/{experiment_id}", response_model=schemas.ExperimentOut)
 def get_experiment(experiment_id: str, ctx: AuthContext = Depends(current_context), db: Session = Depends(get_db)) -> models.Experiment:
     return require_experiment(db, experiment_id, ctx)
+
+
+def _seconds_between(start: datetime, end: datetime | None) -> int:
+    finished_at = end or datetime.now(timezone.utc)
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if finished_at.tzinfo is None:
+        finished_at = finished_at.replace(tzinfo=timezone.utc)
+    return max(0, int((finished_at - start).total_seconds()))
+
+
+def _expected_run_count(db: Session, experiment: models.Experiment) -> int | None:
+    if not experiment.dataset_snapshot_id:
+        return None
+    snapshot = db.get(models.DatasetSnapshot, experiment.dataset_snapshot_id)
+    if snapshot is None:
+        return None
+    config = db.get(models.RegressionConfig, experiment.regression_config_id) if experiment.regression_config_id else None
+    repetitions = ((config.config if config else {}).get("execution") or {}).get("repetitions", 1)
+    cases = snapshot.snapshot.get("cases") or []
+    return len(cases) * int(repetitions or 1) * 2
+
+
+@router.get("/experiments/{experiment_id}/progress")
+def experiment_progress(experiment_id: str, ctx: AuthContext = Depends(current_context), db: Session = Depends(get_db)) -> dict[str, Any]:
+    experiment = require_experiment(db, experiment_id, ctx)
+    total_runs = _expected_run_count(db, experiment)
+    completed_runs = db.scalar(
+        select(func.count()).select_from(models.Run).where(models.Run.experiment_id == experiment.id, models.Run.status == "completed")
+    )
+    failed_runs = db.scalar(
+        select(func.count()).select_from(models.Run).where(models.Run.experiment_id == experiment.id, models.Run.status == "failed")
+    )
+    completed_runs = int(completed_runs or 0)
+    failed_runs = int(failed_runs or 0)
+    pending_runs = 0 if total_runs is None else max(total_runs - completed_runs - failed_runs, 0)
+    progress_percent = None if total_runs is None or total_runs == 0 else round(((completed_runs + failed_runs) / total_runs) * 100)
+    return {
+        "id": experiment.id,
+        "status": experiment.status,
+        "verdict": experiment.verdict,
+        "created_at": experiment.created_at,
+        "completed_at": experiment.completed_at,
+        "elapsed_seconds": _seconds_between(experiment.created_at, experiment.completed_at),
+        "total_runs": total_runs,
+        "completed_runs": completed_runs,
+        "failed_runs": failed_runs,
+        "pending_runs": pending_runs,
+        "progress_percent": progress_percent,
+    }
 
 
 @router.post("/experiments/{experiment_id}/cancel")

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { ComparisonEvaluation, ComparisonItem, ComparisonRunDetail, Experiment, ExperimentComparison, experimentExportUrl, Dataset, Prompt } from "../lib/api";
+import { ComparisonEvaluation, ComparisonItem, ComparisonRunDetail, Experiment, ExperimentComparison, ExperimentProgress, experimentExportUrl, Dataset, Prompt } from "../lib/api";
 import { CreateExperimentForm } from "./CreateExperimentForm";
 
 type ExperimentPanelProps = {
@@ -11,12 +11,14 @@ type ExperimentPanelProps = {
   experiments: Experiment[];
   isLoadingComparison: boolean;
   isLoadingExperiments: boolean;
+  isLoadingProgress: boolean;
   onCancel: (experimentId: string) => void;
   onCreated: (experiment: Experiment) => void;
   onError: (message: string) => void;
   onRefresh: () => void;
   onRefreshComparison: () => void;
   onSelectExperiment: (experimentId: string) => void;
+  progress: ExperimentProgress | null;
   projectId: string | null;
   prompts: Prompt[];
   selectedExperimentId: string | null;
@@ -29,8 +31,77 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 }
 
+function formatElapsed(seconds: number | null | undefined) {
+  if (seconds === null || seconds === undefined) {
+    return "n/a";
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes ? `${minutes}m ${remainder}s` : `${remainder}s`;
+}
+
 function canCancel(experiment: Experiment) {
   return ["created", "queued", "running", "cancelling"].includes(experiment.status);
+}
+
+function ExperimentProgressPanel({ isLoading, progress }: { isLoading: boolean; progress: ExperimentProgress | null }) {
+  if (!progress) {
+    return (
+      <div className="progress-card">
+        <div className="version-header">
+          <strong>Progress</strong>
+          <span>{isLoading ? "Loading..." : "Pending"}</span>
+        </div>
+        <div className="progress-bar" aria-label="Experiment progress">
+          <span style={{ width: "0%" }} />
+        </div>
+      </div>
+    );
+  }
+
+  const percent = progress.progress_percent ?? 0;
+  const progressText = progress.progress_percent === null ? "Waiting for runs" : `${progress.progress_percent}%`;
+
+  return (
+    <div className="progress-card">
+      <div className="version-header">
+        <strong>Progress</strong>
+        <span>{isLoading ? "Refreshing..." : progressText}</span>
+      </div>
+      <div className="progress-bar" aria-label="Experiment progress">
+        <span style={{ width: `${Math.min(Math.max(percent, 0), 100)}%` }} />
+      </div>
+      <dl className="metric-grid progress-grid">
+        <div>
+          <dt>Status</dt>
+          <dd>{progress.status}</dd>
+        </div>
+        <div>
+          <dt>Verdict</dt>
+          <dd>{progress.verdict || "Pending"}</dd>
+        </div>
+        <div>
+          <dt>Elapsed</dt>
+          <dd>{formatElapsed(progress.elapsed_seconds)}</dd>
+        </div>
+        <div>
+          <dt>Completed runs</dt>
+          <dd>{progress.completed_runs}</dd>
+        </div>
+        <div>
+          <dt>Failed runs</dt>
+          <dd>{progress.failed_runs}</dd>
+        </div>
+        <div>
+          <dt>Pending runs</dt>
+          <dd>{progress.pending_runs}</dd>
+        </div>
+      </dl>
+      {progress.status === "cancelled" ? (
+        <p className="status-note">The experiment was stopped. Completed partial results are still available.</p>
+      ) : null}
+    </div>
+  );
 }
 
 function metric(value: number | null) {
@@ -272,12 +343,14 @@ export function ExperimentPanel({
   experiments,
   isLoadingComparison,
   isLoadingExperiments,
+  isLoadingProgress,
   onCancel,
   onCreated,
   onError,
   onRefresh,
   onRefreshComparison,
   onSelectExperiment,
+  progress,
   projectId,
   prompts,
   selectedExperimentId,
@@ -373,6 +446,8 @@ export function ExperimentPanel({
                 <dd>{formatDate(selectedExperiment.completed_at)}</dd>
               </div>
             </dl>
+
+            <ExperimentProgressPanel isLoading={isLoadingProgress} progress={progress} />
 
             <div className="button-row">
               {canCancel(selectedExperiment) ? (

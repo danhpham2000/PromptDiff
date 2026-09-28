@@ -16,7 +16,9 @@ import {
   DatasetCase,
   Experiment,
   ExperimentComparison,
+  ExperimentProgress,
   getExperimentComparison,
+  getExperimentProgress,
   listDatasetCases,
   listDatasets,
   listExperiments,
@@ -38,6 +40,7 @@ export default function Home() {
   const [datasetCases, setDatasetCases] = useState<DatasetCase[]>([]);
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [comparison, setComparison] = useState<ExperimentComparison | null>(null);
+  const [experimentProgress, setExperimentProgress] = useState<ExperimentProgress | null>(null);
   const [activePanel, setActivePanel] = useState<ProjectPanel>("prompts");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
@@ -50,6 +53,7 @@ export default function Home() {
   const [isLoadingCases, setIsLoadingCases] = useState(false);
   const [isLoadingExperiments, setIsLoadingExperiments] = useState(false);
   const [isLoadingComparison, setIsLoadingComparison] = useState(false);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [error, setError] = useState("");
 
   const refreshProjects = useCallback(async () => {
@@ -218,12 +222,14 @@ export default function Home() {
         setExperiments([]);
         setSelectedExperimentId(null);
         setComparison(null);
+        setExperimentProgress(null);
         return;
       }
 
       setExperiments([]);
       setSelectedExperimentId(null);
       setComparison(null);
+      setExperimentProgress(null);
       setIsLoadingExperiments(true);
       setError("");
       try {
@@ -333,38 +339,85 @@ export default function Home() {
     }
   }, [selectedExperimentId]);
 
+  const refreshProgress = useCallback(async () => {
+    if (!selectedExperimentId) {
+      setExperimentProgress(null);
+      return null;
+    }
+
+    setIsLoadingProgress(true);
+    setError("");
+    try {
+      const progress = await getExperimentProgress(selectedExperimentId);
+      setExperimentProgress(progress);
+      setExperiments((currentExperiments) =>
+        currentExperiments.map((experiment) =>
+          experiment.id === progress.id ? { ...experiment, status: progress.status, verdict: progress.verdict } : experiment,
+        ),
+      );
+      return progress;
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not load experiment progress.");
+      return null;
+    } finally {
+      setIsLoadingProgress(false);
+    }
+  }, [selectedExperimentId]);
+
   useEffect(() => {
     let isCurrentExperiment = true;
-    async function loadSelectedExperimentComparison() {
+    async function loadSelectedExperimentResults() {
       if (!selectedExperimentId) {
         setComparison(null);
+        setExperimentProgress(null);
         return;
       }
 
       setComparison(null);
       setIsLoadingComparison(true);
+      setIsLoadingProgress(true);
       setError("");
       try {
-        const nextComparison = await getExperimentComparison(selectedExperimentId);
+        const [nextComparison, nextProgress] = await Promise.all([
+          getExperimentComparison(selectedExperimentId),
+          getExperimentProgress(selectedExperimentId),
+        ]);
         if (isCurrentExperiment) {
           setComparison(nextComparison);
+          setExperimentProgress(nextProgress);
         }
       } catch (requestError) {
         if (isCurrentExperiment) {
-          setError(requestError instanceof Error ? requestError.message : "Could not load experiment comparison.");
+          setError(requestError instanceof Error ? requestError.message : "Could not load experiment results.");
         }
       } finally {
         if (isCurrentExperiment) {
           setIsLoadingComparison(false);
+          setIsLoadingProgress(false);
         }
       }
     }
 
-    void loadSelectedExperimentComparison();
+    void loadSelectedExperimentResults();
     return () => {
       isCurrentExperiment = false;
     };
   }, [selectedExperimentId]);
+
+  useEffect(() => {
+    if (!selectedExperimentId || !experimentProgress || !["created", "queued", "running", "cancelling"].includes(experimentProgress.status)) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void refreshProgress().then((progress) => {
+        if (progress && !["created", "queued", "running", "cancelling"].includes(progress.status)) {
+          void refreshComparison();
+          void refreshExperiments();
+        }
+      });
+    }, 2000);
+    return () => window.clearInterval(interval);
+  }, [experimentProgress, refreshComparison, refreshExperiments, refreshProgress, selectedExperimentId]);
 
   useEffect(() => {
     let isCurrentDataset = true;
@@ -440,6 +493,7 @@ export default function Home() {
           experiment.id === experimentId ? { ...experiment, status: cancelled.status, verdict: cancelled.status === "cancelled" ? "CANCELLED" : experiment.verdict } : experiment,
         ),
       );
+      await refreshProgress();
       await refreshComparison();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not cancel experiment.");
@@ -553,12 +607,14 @@ export default function Home() {
               experiments={experiments}
               isLoadingComparison={isLoadingComparison}
               isLoadingExperiments={isLoadingExperiments}
+              isLoadingProgress={isLoadingProgress}
               onCancel={handleCancelExperiment}
               onCreated={handleExperimentCreated}
               onError={setError}
               onRefresh={refreshExperiments}
               onRefreshComparison={refreshComparison}
               onSelectExperiment={setSelectedExperimentId}
+              progress={experimentProgress}
               projectId={selectedProjectId}
               prompts={prompts}
               selectedExperimentId={selectedExperimentId}
