@@ -87,13 +87,21 @@ test("compares two prompt versions", async ({ page }) => {
 
   await createAdditionalPromptVersion(page, "Refund monthly plans directly.\nEscalate enterprise refunds.", "{{message}}\nReturn JSON.");
   await expect(page.getByText("Prompt diff")).toBeVisible();
-  await expect(page.getByLabel("Baseline version")).toBeVisible();
-  await expect(page.getByLabel("Candidate version")).toBeVisible();
+  const baselineVersion = page.getByLabel("Baseline version");
+  const candidateVersion = page.getByLabel("Candidate version");
+  await expect(baselineVersion.locator("option:checked")).toContainText(/^Version 1 · .+ · [a-f0-9]{12}$/);
+  await expect(candidateVersion.locator("option:checked")).toContainText(/^Version 2 · .+ · [a-f0-9]{12}$/);
+  await expect(candidateVersion.locator("option").first()).toHaveJSProperty("disabled", true);
   await expect(page.locator(".prompt-diff-table").getByText("Escalate enterprise refunds.").first()).toBeVisible();
   await expect(page.locator(".prompt-diff-table").getByText("Refund monthly plans directly.")).toBeVisible();
 
   await page.getByRole("button", { name: "User template" }).click();
   await expect(page.locator(".prompt-diff-table").getByText("Return JSON.")).toBeVisible();
+
+  await createAdditionalPromptVersion(page, "Refund monthly plans directly.\nEscalate enterprise refunds.", "{{message}}\nReturn JSON.");
+  await expect(baselineVersion.locator("option:checked")).toContainText(/^Version 2 · .+ · [a-f0-9]{12}$/);
+  await expect(candidateVersion.locator("option:checked")).toContainText(/^Version 3 · .+ · [a-f0-9]{12}$/);
+  await expect(page.getByText("No text changes")).toBeVisible();
 });
 
 test("blocks invalid dataset case JSON before submit", async ({ page }) => {

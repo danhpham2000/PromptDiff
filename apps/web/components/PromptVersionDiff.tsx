@@ -14,6 +14,14 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }
 
+function shortHash(version: PromptVersion) {
+  return version.content_hash.slice(0, 12);
+}
+
+function versionLabel(version: PromptVersion) {
+  return `Version ${version.version_number} · ${formatDate(version.created_at)} · ${shortHash(version)}`;
+}
+
 function textFor(version: PromptVersion, mode: DiffMode) {
   return mode === "system" ? version.system_prompt || "" : version.user_template || "";
 }
@@ -42,7 +50,7 @@ function VersionSummary({ label, version }: { label: string; version: PromptVers
       <dl className="version-meta">
         <div>
           <dt>Hash</dt>
-          <dd>{version.content_hash.slice(0, 12)}</dd>
+          <dd>{shortHash(version)}</dd>
         </div>
         <div>
           <dt>Schema</dt>
@@ -68,8 +76,8 @@ export function PromptVersionDiff({ versions }: PromptVersionDiffProps) {
       setCandidateId("");
       return;
     }
-    setBaselineId((current) => (versions.some((version) => version.id === current) ? current : versions[versions.length - 2].id));
-    setCandidateId((current) => (versions.some((version) => version.id === current) ? current : versions[versions.length - 1].id));
+    setBaselineId(versions[versions.length - 2].id);
+    setCandidateId(versions[versions.length - 1].id);
   }, [versions]);
 
   if (versions.length < 2) {
@@ -85,6 +93,7 @@ export function PromptVersionDiff({ versions }: PromptVersionDiffProps) {
 
   const baseline = versions.find((version) => version.id === baselineId) || versions[0];
   const candidate = versions.find((version) => version.id === candidateId) || versions[versions.length - 1];
+  const noTextChanges = textFor(baseline, mode) === textFor(candidate, mode);
   const rows = diffLines(textFor(baseline, mode), textFor(candidate, mode));
 
   return (
@@ -109,8 +118,8 @@ export function PromptVersionDiff({ versions }: PromptVersionDiffProps) {
           Baseline version
           <select onChange={(event) => setBaselineId(event.target.value)} value={baseline.id}>
             {versions.map((version) => (
-              <option key={version.id} value={version.id}>
-                Version {version.version_number}
+              <option disabled={version.id === candidate.id} key={version.id} value={version.id}>
+                {versionLabel(version)}
               </option>
             ))}
           </select>
@@ -119,8 +128,8 @@ export function PromptVersionDiff({ versions }: PromptVersionDiffProps) {
           Candidate version
           <select onChange={(event) => setCandidateId(event.target.value)} value={candidate.id}>
             {versions.map((version) => (
-              <option key={version.id} value={version.id}>
-                Version {version.version_number}
+              <option disabled={version.id === baseline.id} key={version.id} value={version.id}>
+                {versionLabel(version)}
               </option>
             ))}
           </select>
@@ -131,6 +140,13 @@ export function PromptVersionDiff({ versions }: PromptVersionDiffProps) {
         <VersionSummary label="Baseline" version={baseline} />
         <VersionSummary label="Candidate" version={candidate} />
       </div>
+
+      {noTextChanges ? (
+        <div className="empty-state compact">
+          <strong>No text changes</strong>
+          <span>The selected versions have identical {mode === "system" ? "system prompt" : "user template"} text.</span>
+        </div>
+      ) : null}
 
       <div className="prompt-diff-table" aria-label="Prompt version line diff">
         <div className="prompt-diff-table-header">
