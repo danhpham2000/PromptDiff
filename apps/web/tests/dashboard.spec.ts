@@ -48,7 +48,12 @@ async function createCompletedExperiment(page: import("@playwright/test").Page, 
   await page.getByLabel("Provider").selectOption("mock");
   await page.getByRole("button", { name: "Run experiment" }).click();
 
-  await expect(page.getByRole("button", { name: new RegExp(name) })).toBeVisible();
+  const experimentRow = page.getByLabel("Experiments").getByRole("button", { name: new RegExp(name) });
+  await expect(experimentRow).toBeVisible();
+  await expect(experimentRow).toContainText("completed");
+  await expect(experimentRow).toContainText(/PASS|FAIL|ERROR|CANCELLED|Pending/);
+  await expect(experimentRow).toContainText("Created");
+  await expect(experimentRow).toContainText("Snapshot ready");
   await expect(page.getByText("Verdict").first()).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: /PASS|FAIL|ERROR|CANCELLED|Pending/ }).first()).toBeVisible();
   await expect(page.getByText("Progress")).toBeVisible();

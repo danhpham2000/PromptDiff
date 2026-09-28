@@ -466,6 +466,11 @@ label {
   color: var(--muted);
 }
 
+.experiment-row-meta {
+  display: grid;
+  gap: 5px;
+}
+
 .dataset-list,
 .case-list,
 .comparison-list {
